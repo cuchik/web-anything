@@ -24,6 +24,7 @@ type Recipe = {
   duration: string;
   servings: string;
   calories: string;
+  confidence: number;
   ingredients: string[];
   steps: string[];
 };
@@ -36,6 +37,7 @@ const sampleRecipe: Recipe = {
   duration: "30 phút",
   servings: "2 người",
   calories: "420 kcal",
+  confidence: 92,
   ingredients: [
     "300g thăn bò",
     "1 quả ớt chuông",
@@ -217,7 +219,7 @@ export default function Home() {
           <div className="recipe-content">
             <div className="recipe-title-row">
               <div>
-                <span className="confidence"><span /> Độ tin cậy 92%</span>
+                <span className="confidence"><span /> Độ tin cậy {recipe.confidence}%</span>
                 <h3>{recipe.title}</h3>
                 <p>{recipe.subtitle}</p>
               </div>
