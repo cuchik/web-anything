@@ -4,56 +4,54 @@ import {
   ArrowRight,
   Check,
   ChefHat,
-  Clock3,
-  Copy,
-  Flame,
   ImageIcon,
-  Link2,
   LoaderCircle,
   Play,
   Save,
   Sparkles,
-  Users,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
+import { RecipeCard, type DisplayRecipe } from "@/components/recipe-card";
+import type { SavedRecipe } from "@/lib/recipes/saved-recipe";
 
-type Recipe = {
-  title: string;
-  subtitle: string;
-  image: string;
-  duration: string;
-  servings: string;
-  calories: string;
-  confidence: number;
-  ingredients: string[];
-  steps: string[];
+type SessionState = {
+  authenticated: boolean;
+  displayName: string | null;
+  signInPath: string;
 };
 
-const sampleRecipe: Recipe = {
-  title: "Bò sốt tiêu đen",
-  subtitle: "Thịt bò mềm mọng, sốt tiêu thơm nồng",
+const sampleRecipe: DisplayRecipe = {
+  isFood: true,
+  title: "Rau củ hầm kiểu nhà",
+  subtitle: "Rau củ mềm ngọt trong nước dùng thanh nhẹ",
   image:
     "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=88",
   duration: "30 phút",
   servings: "2 người",
-  calories: "420 kcal",
-  confidence: 92,
+  calories: "~280 kcal",
+  confidence: 74,
+  confidenceBand: "medium",
+  observations: ["Có nhiều loại rau củ trong một món nước", "Món có dạng hầm hoặc nấu canh"],
+  assumptions: ["Gia vị và định lượng không thể xác định chính xác từ ảnh", "Các bước dưới đây là gợi ý để nấu tại nhà"],
   ingredients: [
-    "300g thăn bò",
-    "1 quả ớt chuông",
+    "2 củ khoai tây",
+    "2 củ cà rốt",
     "1/2 củ hành tây",
-    "2 thìa sốt tiêu đen",
-    "Tỏi, dầu hào, nước tương",
+    "200g cà chua",
+    "Nước dùng, muối và tiêu",
   ],
   steps: [
-    "Thái bò miếng mỏng, ướp với nước tương và dầu hào trong 15 phút.",
-    "Áp chảo bò trên lửa lớn đến khi vừa chín tới rồi để riêng.",
-    "Xào hành tây, ớt chuông; thêm sốt tiêu đen và một chút nước.",
-    "Cho bò trở lại chảo, đảo nhanh 1 phút rồi dùng nóng.",
+    "Rửa sạch, gọt vỏ rồi cắt rau củ thành miếng vừa ăn.",
+    "Xào hành tây và cà chua đến khi dậy mùi.",
+    "Thêm khoai tây, cà rốt và nước dùng; hầm đến khi rau củ mềm.",
+    "Nêm muối, tiêu theo khẩu vị rồi dùng nóng.",
   ],
+  warnings: ["Đây là dữ liệu minh họa, không phải kết quả phân tích một video thật."],
+  sourceUrl: "https://www.facebook.com/reel/1234567890",
+  promptVersion: "sample",
 };
 
-const stages = ["Đang mở video", "Chọn khung hình đẹp nhất", "Đọc món ăn"];
+const stages = ["Kiểm tra link", "Đọc ảnh đại diện", "AI ước tính công thức"];
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -61,9 +59,12 @@ export default function Home() {
     "idle",
   );
   const [stage, setStage] = useState(0);
-  const [recipe, setRecipe] = useState<Recipe>(sampleRecipe);
+  const [recipe, setRecipe] = useState<DisplayRecipe>(sampleRecipe);
   const [message, setMessage] = useState("");
   const [toast, setToast] = useState("");
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (status !== "loading") return;
@@ -73,6 +74,30 @@ export default function Home() {
     );
     return () => window.clearInterval(timer);
   }, [status]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/session", { cache: "no-store" });
+        const nextSession = (await response.json()) as SessionState;
+        if (!active) return;
+        setSession(nextSession);
+        if (nextSession.authenticated) {
+          const recipesResponse = await fetch("/api/recipes", { cache: "no-store" });
+          if (recipesResponse.ok) {
+            const data = (await recipesResponse.json()) as { recipes: SavedRecipe[] };
+            if (active) setSavedRecipes(data.recipes);
+          }
+        }
+      } catch {
+        if (active) setSession({ authenticated: false, displayName: null, signInPath: "/signin-with-chatgpt?return_to=%2F" });
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function analyze(videoUrl: string) {
     if (!videoUrl.trim()) {
@@ -91,8 +116,13 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: videoUrl.trim() }),
       });
-      const data = (await response.json()) as { recipe?: Recipe; error?: string };
-      if (!response.ok || !data.recipe) throw new Error(data.error || "Không thể đọc video");
+      const data = (await response.json()) as {
+        recipe?: DisplayRecipe;
+        error?: { message?: string };
+      };
+      if (!response.ok || !data.recipe) {
+        throw new Error(data.error?.message || "Không thể phân tích ảnh đại diện của video");
+      }
       setRecipe(data.recipe);
       setTimeout(() => setStatus("done"), 350);
     } catch (error) {
@@ -107,9 +137,12 @@ export default function Home() {
   }
 
   function trySample() {
-    const sampleUrl = "https://www.facebook.com/reel/1234567890";
-    setUrl(sampleUrl);
-    void analyze(sampleUrl);
+    setRecipe(sampleRecipe);
+    setStatus("done");
+    setMessage("");
+    window.setTimeout(() => {
+      document.querySelector(".result-section")?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
   }
 
   function showToast(text: string) {
@@ -117,14 +150,59 @@ export default function Home() {
     window.setTimeout(() => setToast(""), 1800);
   }
 
-  function copyRecipe() {
+  async function copyRecipe() {
     const text = `${recipe.title}\n\nNguyên liệu:\n${recipe.ingredients
       .map((item) => `• ${item}`)
       .join("\n")}\n\nCách làm:\n${recipe.steps
       .map((item, index) => `${index + 1}. ${item}`)
       .join("\n")}`;
-    void navigator.clipboard.writeText(text);
-    showToast("Đã sao chép công thức");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Đã sao chép công thức");
+    } catch {
+      showToast("Không thể sao chép. Hãy cấp quyền clipboard rồi thử lại.");
+    }
+  }
+
+  function openSavedRecipes() {
+    if (!session?.authenticated) {
+      window.location.assign(session?.signInPath || "/signin-with-chatgpt?return_to=%2F");
+      return;
+    }
+    document.querySelector("#saved-recipes")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function saveRecipe() {
+    if (!session?.authenticated) {
+      window.location.assign(session?.signInPath || "/signin-with-chatgpt?return_to=%2F");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recipe),
+      });
+      const data = (await response.json()) as { recipe?: SavedRecipe; error?: { message?: string } };
+      if (!response.ok || !data.recipe) throw new Error(data.error?.message || "Không thể lưu công thức");
+      setSavedRecipes((current) => [data.recipe!, ...current.filter((item) => item.id !== data.recipe!.id)]);
+      showToast("Đã lưu vào sổ công thức");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể lưu công thức");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function removeSavedRecipe(id: string) {
+    const response = await fetch(`/api/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!response.ok) {
+      showToast("Không thể xóa công thức");
+      return;
+    }
+    setSavedRecipes((current) => current.filter((item) => item.id !== id));
+    showToast("Đã xóa công thức");
   }
 
   const showResult = status === "done";
@@ -138,8 +216,8 @@ export default function Home() {
         </a>
         <div className="nav-actions">
           <span className="beta-pill"><Sparkles size={13} /> AI beta</span>
-          <button className="saved-button" onClick={() => showToast("Chưa có công thức đã lưu")}>
-            <Save size={17} /> <span>Công thức đã lưu</span>
+          <button className="saved-button" onClick={openSavedRecipes}>
+            <Save size={17} /> <span>{session?.authenticated ? `Đã lưu (${savedRecipes.length})` : "Đăng nhập để lưu"}</span>
           </button>
         </div>
       </nav>
@@ -151,8 +229,8 @@ export default function Home() {
           <div className="eyebrow"><span /> Từ video thành bữa ngon</div>
           <h1>Thấy món ngon trên Facebook?<br /><em>Mang công thức về đây.</em></h1>
           <p className="hero-lead">
-            Dán link Reel hoặc video. Bếp AI sẽ chọn khung hình đẹp nhất,
-            nhận diện món ăn và viết lại công thức dễ làm cho bạn.
+            Dán link Reel hoặc video công khai. Bếp AI sẽ đọc ảnh đại diện,
+            nhận diện món ăn và viết một công thức gợi ý cho bạn.
           </p>
 
           <form className={`url-box ${status === "error" ? "has-error" : ""}`} onSubmit={onSubmit}>
@@ -188,15 +266,19 @@ export default function Home() {
             )}
           </form>
           {status === "error" && <p className="error-message">{message}</p>}
+          <p className="privacy-note">
+            Khi bạn phân tích, ảnh đại diện và mô tả công khai của video được gửi tới Google Gemini.
+            Không nhập link riêng tư hoặc nội dung nhạy cảm.
+          </p>
 
           <button className="sample-button" type="button" onClick={trySample} disabled={status === "loading"}>
             <Play size={15} fill="currentColor" /> Chưa có link? Xem thử với video mẫu
           </button>
 
           <div className="trust-row">
-            <div><ImageIcon size={18} /><span><strong>Tự chọn ảnh chính</strong>Không cần chụp màn hình</span></div>
-            <div><Sparkles size={18} /><span><strong>Công thức rõ ràng</strong>Nguyên liệu & từng bước</span></div>
-            <div><Clock3 size={18} /><span><strong>Chỉ mất vài giây</strong>Lưu lại để nấu sau</span></div>
+            <div><ImageIcon size={18} /><span><strong>Đọc ảnh đại diện</strong>Không cần chụp màn hình</span></div>
+            <div><Sparkles size={18} /><span><strong>Phân biệt suy đoán</strong>Biết điều gì AI chưa chắc</span></div>
+            <div><Check size={18} /><span><strong>Công thức gợi ý</strong>Kiểm tra lại trước khi nấu</span></div>
           </div>
         </div>
       </section>
@@ -205,51 +287,47 @@ export default function Home() {
         <div className="section-heading">
           <span className="section-kicker"><Sparkles size={14} /> Bếp AI đã tìm thấy</span>
           <h2>{showResult ? "Công thức từ video của bạn" : "Một video. Một công thức hoàn chỉnh."}</h2>
-          <p>{showResult ? "Bạn có thể chỉnh lại định lượng theo khẩu phần mong muốn." : "Đây là kết quả mẫu — hãy dán link của bạn để bắt đầu."}</p>
+          <p>{showResult ? "Kết quả được ước tính từ ảnh đại diện và có thể cần bạn điều chỉnh." : "Đây là kết quả mẫu — hãy dán link của bạn để bắt đầu."}</p>
         </div>
 
-        <article className="recipe-card">
-          <div className="dish-media">
-            <img src={recipe.image} alt={recipe.title} />
-            <span className="frame-badge"><ImageIcon size={15} /> Khung hình chính</span>
-            <button className="play-overlay" type="button" aria-label="Xem lại video"><Play size={22} fill="currentColor" /></button>
-            <div className="media-caption"><span>Từ video Facebook</span><small>Phân tích khung hình nổi bật</small></div>
-          </div>
-
-          <div className="recipe-content">
-            <div className="recipe-title-row">
-              <div>
-                <span className="confidence"><span /> Độ tin cậy {recipe.confidence}%</span>
-                <h3>{recipe.title}</h3>
-                <p>{recipe.subtitle}</p>
-              </div>
-              <button className="icon-button" onClick={copyRecipe} aria-label="Sao chép công thức" title="Sao chép công thức"><Copy size={18} /></button>
-            </div>
-
-            <div className="recipe-meta">
-              <span><Clock3 size={17} /> {recipe.duration}</span>
-              <span><Users size={17} /> {recipe.servings}</span>
-              <span><Flame size={17} /> {recipe.calories}</span>
-            </div>
-
-            <div className="recipe-grid">
-              <div>
-                <h4>Nguyên liệu</h4>
-                <ul>{recipe.ingredients.map((item) => <li key={item}><Check size={13} /> {item}</li>)}</ul>
-              </div>
-              <div>
-                <h4>Cách làm</h4>
-                <ol>{recipe.steps.map((item, index) => <li key={item}><span>{index + 1}</span><p>{item}</p></li>)}</ol>
-              </div>
-            </div>
-
-            <div className="recipe-actions">
-              <button className="primary-action" onClick={() => showToast("Đã lưu vào sổ công thức")}><Save size={17} /> Lưu công thức</button>
-              <button className="secondary-action" onClick={copyRecipe}><Copy size={17} /> Sao chép</button>
-            </div>
-          </div>
-        </article>
+        <RecipeCard
+          recipe={recipe}
+          onCopy={() => void copyRecipe()}
+          saveLabel={isSaving ? "Đang lưu…" : session?.authenticated ? "Lưu công thức" : "Đăng nhập để lưu"}
+          saveDisabled={isSaving}
+          onSave={() => void saveRecipe()}
+        />
       </section>
+
+      {session?.authenticated && (
+        <section className="saved-section" id="saved-recipes" aria-labelledby="saved-title">
+          <div className="section-heading">
+            <span className="section-kicker"><Save size={14} /> Sổ công thức của bạn</span>
+            <h2 id="saved-title">Công thức đã lưu</h2>
+            <p>{session.displayName ? `Đang đăng nhập với ${session.displayName}` : "Các công thức gắn với tài khoản ChatGPT của bạn."}</p>
+          </div>
+          {savedRecipes.length === 0 ? (
+            <p className="saved-empty">Bạn chưa lưu công thức nào.</p>
+          ) : (
+            <div className="saved-grid">
+              {savedRecipes.map((item) => (
+                <article className="saved-card" key={item.id}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.image} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                  <div>
+                    <h3>{item.title}</h3>
+                    <p>{new Intl.DateTimeFormat("vi-VN").format(item.createdAt)}</p>
+                    <div>
+                      <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">Video gốc</a>
+                      <button type="button" onClick={() => void removeSavedRecipe(item.id)}>Xóa</button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <footer>
         <a className="brand footer-brand" href="#top"><span className="brand-mark"><ChefHat size={19} /></span>Bếp Từ Video</a>
@@ -257,7 +335,7 @@ export default function Home() {
         <span>Made with a pinch of AI ✦</span>
       </footer>
 
-      {toast && <div className="toast"><Check size={16} /> {toast}</div>}
+      {toast && <div className="toast" role="status" aria-live="polite"><Check size={16} /> {toast}</div>}
     </main>
   );
 }

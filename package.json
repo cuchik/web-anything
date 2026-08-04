@@ -1,7 +1,8 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "bep-tu-video",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -9,34 +10,61 @@
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "test": "pnpm run test:unit && pnpm run test:render",
+    "test:unit": "vitest run",
+    "test:render": "node --test tests/*.test.mjs",
+    "eval:offline": "vitest run tests/unit/gemini-prompt.test.ts tests/unit/recipe-schema.test.ts tests/unit/saved-recipe.test.ts",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --max-warnings=0",
+    "typecheck": "tsc --noEmit --incremental false",
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "lucide-react": "^1.28.0",
-    "next": "16.2.6",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/vite-plugin": "1.50.0",
+    "@cloudflare/workers-types": "5.20260804.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
+    "eslint-config-next": "16.3.0",
+    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "vite": "8.2.0",
+    "vitest": "^4.1.10",
+    "wrangler": "4.118.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver",
+      "workerd"
+    ],
+    "overrides": {
+      "@babel/core": "7.29.6",
+      "@esbuild-kit/core-utils>esbuild": "0.25.12",
+      "brace-expansion@1.1.14": "1.1.18",
+      "brace-expansion@5.0.6": "5.0.9",
+      "fast-uri@3.1.2": "3.1.5",
+      "js-yaml@4.1.1": "4.3.0",
+      "postcss@8.5.14": "8.5.25",
+      "tsx>esbuild": "0.28.1",
+      "undici@7.28.0": "7.29.0"
+    }
   },
   "type": "module"
 }

@@ -1,5 +1,27 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785859558982,
+      "tag": "0000_zippy_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785859700496,
+      "tag": "0001_quiet_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785859752572,
+      "tag": "0002_tranquil_matthew_murdock",
+      "breakpoints": true
+    }
+  ]
 }

@@ -1,98 +1,80 @@
-# vinext-starter
+# Bếp Từ Video
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Bếp Từ Video nhận link Reel/video Facebook công khai, đọc ảnh đại diện của video và dùng Gemini Vision để tạo một công thức tiếng Việt có ghi rõ điều AI quan sát được và điều AI suy đoán.
 
-## Prerequisites
+> Ứng dụng hiện phân tích **ảnh đại diện**, không tải hay đọc toàn bộ video. Công thức, định lượng và calories là ước tính; người dùng phải kiểm tra dị ứng và an toàn thực phẩm.
 
-- Node.js `>=22.13.0`
+## Stack
 
-## Quick Start
+- Next.js 16 + React 19 chạy qua Vinext/Vite
+- Cloudflare Workers và OpenAI Sites
+- Gemini Vision
+- Cloudflare D1 + Drizzle cho saved recipes, distributed rate limit và short-lived analysis cache
+- pnpm, TypeScript strict, ESLint, Vitest và Node render tests
+
+## Local setup
+
+Yêu cầu Node.js `>=22.13.0` và pnpm version ghi trong `package.json`.
 
 ```bash
-npm install
-npm run dev
-npm run build
+pnpm install --frozen-lockfile
+cp .env.example .env.local
+pnpm dev
 ```
 
-This starter does not use `wrangler.jsonc`.
+Cấu hình `.env.local`:
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```dotenv
+GEMINI_API_KEY=your_server_side_key
+GEMINI_MODEL=gemini-3.6-flash
+USER_ID_PEPPER=a_long_random_server_secret
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Không commit `.env.local`. Nếu chỉ test giao diện, app có thể chạy không cần D1; analyze cần Gemini key và lưu recipe cần Sites authentication + D1.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## Commands
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+```bash
+pnpm dev          # local development
+pnpm lint         # ESLint, zero warnings
+pnpm typecheck    # strict TypeScript
+pnpm test         # unit + server-render tests
+pnpm build        # production Worker build
+pnpm verify       # all required quality gates
+pnpm audit        # dependency vulnerabilities
+pnpm db:generate  # generate D1 migrations after schema changes
+pnpm eval:offline # AI contract and prompt regression tests
+```
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Architecture
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+```text
+Browser
+  -> POST /api/analyze
+  -> URL validation + D1 rate limit/cache
+  -> safe Facebook metadata fetch
+  -> bounded Facebook CDN image fetch
+  -> Gemini structured output
+  -> runtime schema validation
+  -> observations / assumptions / warnings
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+Signed-in user
+  -> /api/recipes
+  -> server-side ownership check
+  -> D1 saved recipes
+```
 
-## Useful Commands
+Xem [architecture](docs/architecture.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) và [deployment](docs/deployment.md).
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## Product limitations
 
-## Learn More
+- Facebook có thể chặn metadata của video private, login-gated hoặc region-limited.
+- Không có fallback ảnh giả cho request thật; app trả lỗi rõ ràng nếu không lấy được ảnh.
+- Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
+- Video/frame extraction thật nằm ngoài MVP hiện tại và cần Meta/platform compliance review.
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+## Contributing and security
+
+Đọc [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) và [AGENTS.md](AGENTS.md) trước khi thay đổi code.
+
+Repo chưa có license công khai. Cho đến khi chủ sở hữu chọn license, hãy xem source là private và không tái phân phối.
