@@ -52,7 +52,7 @@ pnpm eval:offline # AI contract and prompt regression tests
 Browser
   -> POST /api/analyze
   -> URL validation + D1 rate limit/cache
-  -> safe Facebook metadata fetch
+  -> safe Facebook metadata + embedded progressive-video extraction
   -> validated Facebook CDN video or thumbnail fetch
   -> Gemini inline video / Files API / image analysis
   -> runtime schema validation
@@ -71,7 +71,7 @@ Xem [architecture](docs/architecture.md), [API](docs/api/analyze.md), [AI contra
 - Facebook có thể chặn metadata của video private, login-gated hoặc region-limited.
 - Không có fallback ảnh giả cho request thật; thumbnail fallback luôn là ảnh thật của chính video.
 - Video dưới giới hạn inline được gửi trực tiếp; video lớn hơn được stream tạm thời qua Gemini Files API và xóa sau khi phân tích.
-- Facebook có thể không xuất direct video metadata; khi đó app phân tích thumbnail và hiển thị rõ giới hạn này.
+- Facebook direct video fields là API không chính thức và có thể thay đổi; khi không tìm được hoặc tải video thất bại, app phân tích thumbnail và hiển thị rõ giới hạn này.
 - Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
 
 ## Contributing and security

@@ -56,6 +56,25 @@ describe("fetchFacebookMetadata", () => {
     });
   });
 
+  it("uses an embedded Facebook progressive video when Open Graph omits video", async () => {
+    const html = String.raw`
+      <meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">
+      <script>{"browser_native_hd_url":"https:\/\/video.fbcdn.net\/dish-hd.mp4"}</script>
+    `;
+    const fetchImplementation = async () =>
+      new Response(html, { status: 200, headers: { "content-type": "text/html" } });
+
+    await expect(
+      fetchFacebookMetadata(
+        new URL("https://www.facebook.com/watch?v=123"),
+        fetchImplementation as typeof fetch,
+      ),
+    ).resolves.toMatchObject({
+      imageUrl: "https://scontent.fbcdn.net/dish.jpg",
+      videoUrl: "https://video.fbcdn.net/dish-hd.mp4",
+    });
+  });
+
   it("rejects an image hosted outside Facebook", async () => {
     const html = `<meta property="og:image" content="https://example.com/dish.jpg">`;
     const fetchImplementation = async () =>

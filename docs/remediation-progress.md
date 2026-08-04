@@ -17,3 +17,5 @@
 - [x] Push the validated source to GitHub and the Sites source repository.
 - [x] Implement Gemini multi-frame video analysis with a truthful thumbnail fallback.
 - [x] Deploy the new version with production environment revision 1.
+- [x] Extract validated progressive MP4 URLs from public Facebook embedded JSON when Open Graph omits video.
+- [ ] Commit, push and deploy the embedded-video extraction release.

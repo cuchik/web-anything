@@ -19,9 +19,11 @@ Facebook URLs, redirects, HTML metadata, images, videos, Gemini upload responses
 
 ```text
 URL -> validate -> rate limit -> versioned cache -> Facebook HTML
-    -> validate OG video + thumbnail
+    -> validate OG video or embedded progressive video + thumbnail
     -> video available? -> small: bounded inline video -> Gemini (1 FPS sampling)
                         -> larger: streamed Files API upload -> Gemini -> delete file
     -> no safe video / recoverable video failure -> bounded thumbnail -> Gemini
     -> Zod validation -> label analysisMode -> cache -> browser
 ```
+
+Embedded Facebook media fields are undocumented and isolated in `lib/facebook/video-extractor.ts`. Extraction never expands the media allowlist, never stores signed CDN URLs, and remains an optional path: any missing, malformed or unusable video candidate falls back to the source video's validated thumbnail.

@@ -9,7 +9,7 @@ const maxInlineVideoBytes = 14 * 1024 * 1024;
 const maxUploadedVideoBytes = 100 * 1024 * 1024;
 const maxGeminiResponseBytes = 256 * 1024;
 const filePollAttempts = 24;
-export const GEMINI_PROMPT_VERSION = "2026-08-04.2-video";
+export const GEMINI_PROMPT_VERSION = "2026-08-04.3-facebook-extractor";
 
 type GeminiFile = {
   name: string;

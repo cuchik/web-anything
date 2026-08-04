@@ -4,9 +4,10 @@ import {
   isAllowedFacebookMediaUrl,
   isFacebookHost,
 } from "@/lib/facebook/url";
+import { extractEmbeddedFacebookVideoUrl } from "@/lib/facebook/video-extractor";
 import { readTextWithLimit, safeFetch } from "@/lib/http/safe-fetch";
 
-const maxHtmlBytes = 1024 * 1024;
+const maxHtmlBytes = 2 * 1024 * 1024;
 
 export type FacebookMetadata = {
   imageUrl: string;
@@ -119,6 +120,7 @@ export async function fetchFacebookMetadata(
       // Video metadata is optional. A validated thumbnail remains a safe fallback.
     }
   }
+  directVideoUrl ??= extractEmbeddedFacebookVideoUrl(html);
 
   return {
     imageUrl: parsedImage.toString(),
