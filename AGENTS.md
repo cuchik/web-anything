@@ -2,8 +2,8 @@
 
 ## Product contract
 
-- The app analyzes the public Facebook video's thumbnail, not the full video.
-- Never describe the current implementation as extracting, watching, or selecting frames from a video.
+- Prefer a validated Facebook direct video URL and Gemini multi-frame analysis. Fall back only to the validated thumbnail from the same source video.
+- Every response and UI claim must identify whether `analysisMode` is `video` or `thumbnail`.
 - AI output is an estimate. Preserve observations, assumptions, warnings, and the user-facing disclaimer.
 - Never substitute a sample or fallback image for a real user URL.
 
@@ -27,7 +27,7 @@
 
 - Never print, commit, or return API keys, user email, image bytes, or full Facebook URLs in logs.
 - Validate every redirect; never reintroduce `redirect: "follow"` for user-influenced URLs.
-- Preserve response byte limits and approved host allowlists.
+- Preserve response byte limits, video upload limits, temporary-file deletion, and approved host allowlists.
 - All saved-recipe reads and writes require server-side ownership checks.
 - Do not use localStorage as authoritative persistence.
 - Live Gemini evaluations require explicit user approval because they consume quota and send images to Google.

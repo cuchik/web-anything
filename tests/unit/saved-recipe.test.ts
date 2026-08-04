@@ -4,6 +4,7 @@ import { saveRecipeSchema } from "@/lib/recipes/saved-recipe";
 
 const payload = {
   isFood: true,
+  analysisMode: "video" as const,
   title: "Bún bò",
   subtitle: "Món bún nước đậm vị",
   duration: "45 phút",

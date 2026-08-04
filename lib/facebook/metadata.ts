@@ -1,11 +1,16 @@
 import { ApplicationError } from "@/lib/errors/application-error";
-import { isAllowedFacebookImageUrl, isFacebookHost } from "@/lib/facebook/url";
+import {
+  isAllowedFacebookImageUrl,
+  isAllowedFacebookMediaUrl,
+  isFacebookHost,
+} from "@/lib/facebook/url";
 import { readTextWithLimit, safeFetch } from "@/lib/http/safe-fetch";
 
 const maxHtmlBytes = 1024 * 1024;
 
 export type FacebookMetadata = {
   imageUrl: string;
+  videoUrl?: string;
   title: string;
   description: string;
 };
@@ -34,12 +39,12 @@ export function extractMetaContent(html: string, property: string) {
 }
 
 export async function fetchFacebookMetadata(
-  videoUrl: URL,
+  facebookVideoUrl: URL,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<FacebookMetadata> {
   let response: Response;
   try {
-    response = await safeFetch(videoUrl, {
+    response = await safeFetch(facebookVideoUrl, {
       isAllowedUrl: (url) => url.protocol === "https:" && isFacebookHost(url.hostname),
       fetchImplementation,
       init: {
@@ -102,8 +107,22 @@ export async function fetchFacebookMetadata(
     );
   }
 
+  const rawVideoUrl = ["og:video:secure_url", "og:video:url", "og:video"]
+    .map((property) => extractMetaContent(html, property))
+    .find(Boolean);
+  let directVideoUrl: string | undefined;
+  if (rawVideoUrl) {
+    try {
+      const parsedVideo = new URL(rawVideoUrl);
+      if (isAllowedFacebookMediaUrl(parsedVideo)) directVideoUrl = parsedVideo.toString();
+    } catch {
+      // Video metadata is optional. A validated thumbnail remains a safe fallback.
+    }
+  }
+
   return {
     imageUrl: parsedImage.toString(),
+    videoUrl: directVideoUrl,
     title: extractMetaContent(html, "og:title").slice(0, 500),
     description: extractMetaContent(html, "og:description").slice(0, 1_500),
   };

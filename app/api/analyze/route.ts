@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { analyzeImageWithGemini, GEMINI_PROMPT_VERSION } from "@/lib/ai/gemini";
+import {
+  analyzeMediaWithGemini,
+  GEMINI_PROMPT_VERSION,
+  shouldFallbackToThumbnail,
+} from "@/lib/ai/gemini";
 import { getCachedAnalysis, setCachedAnalysis } from "@/db/analysis-cache";
 import { ApplicationError, toApplicationError } from "@/lib/errors/application-error";
 import { fetchFacebookMetadata } from "@/lib/facebook/metadata";
 import { parseFacebookVideoUrl, SAMPLE_IMAGE_URL, SAMPLE_VIDEO_URL } from "@/lib/facebook/url";
 import { consumeRateLimit, getClientKey } from "@/lib/rate-limit";
 import { logEvent } from "@/lib/observability/logger";
+import type { RecipeAnalysis } from "@/lib/recipes/schema";
 
 const requestSchema = z.object({
   url: z.string().trim().min(1).max(2_048),
@@ -68,7 +73,8 @@ export async function POST(request: NextRequest) {
     const body = parsedBody.data;
     const videoUrl = parseFacebookVideoUrl(body.url);
     const sourceUrl = videoUrl.toString();
-    const cachedRecipe = await getCachedAnalysis(sourceUrl);
+    const cacheKey = `${GEMINI_PROMPT_VERSION}:${sourceUrl}`;
+    const cachedRecipe = await getCachedAnalysis(cacheKey);
     if (cachedRecipe) {
       logEvent("info", "analysis.completed", {
         requestId,
@@ -79,27 +85,56 @@ export async function POST(request: NextRequest) {
     }
     const isSample = videoUrl.toString() === SAMPLE_VIDEO_URL;
     const metadata = isSample
-      ? { imageUrl: SAMPLE_IMAGE_URL, title: "", description: "" }
+      ? { imageUrl: SAMPLE_IMAGE_URL, videoUrl: undefined, title: "", description: "" }
       : await fetchFacebookMetadata(videoUrl);
 
-    const recipe = await analyzeImageWithGemini({
-      imageUrl: metadata.imageUrl,
+    let analysisMode: "video" | "thumbnail" = metadata.videoUrl ? "video" : "thumbnail";
+    let recipe: RecipeAnalysis | undefined;
+    if (metadata.videoUrl) {
+      try {
+        recipe = await analyzeMediaWithGemini({
+          mediaUrl: metadata.videoUrl,
+          mediaKind: "video",
+          sourceTitle: metadata.title,
+          sourceDescription: metadata.description,
+        });
+      } catch (error) {
+        if (!shouldFallbackToThumbnail(error)) throw error;
+        analysisMode = "thumbnail";
+        logEvent("info", "analysis.video_fallback", { requestId });
+      }
+    }
+    recipe ??= await analyzeMediaWithGemini({
+      mediaUrl: metadata.imageUrl,
+      mediaKind: "image",
       sourceTitle: metadata.title,
       sourceDescription: metadata.description,
     });
 
+    if (analysisMode === "thumbnail") {
+      recipe = {
+        ...recipe,
+        warnings: [
+          "Facebook không cung cấp luồng video phù hợp; kết quả này dựa trên ảnh đại diện.",
+          ...recipe.warnings,
+        ].slice(0, 6),
+      };
+    }
+
     const responseRecipe = {
       ...recipe,
+      analysisMode,
       image: metadata.imageUrl,
       sourceUrl,
       promptVersion: GEMINI_PROMPT_VERSION,
     };
-    await setCachedAnalysis(sourceUrl, responseRecipe);
+    await setCachedAnalysis(cacheKey, responseRecipe);
     logEvent("info", "analysis.completed", {
       requestId,
       cached: false,
       durationMs: Date.now() - startedAt,
       confidenceBand: recipe.confidenceBand,
+      analysisMode,
     });
     return jsonResponse({ recipe: responseRecipe, requestId }, 200, requestId);
   } catch (error) {

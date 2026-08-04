@@ -19,6 +19,7 @@ describe("fetchFacebookMetadata", () => {
       <meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">
       <meta property="og:title" content="Món ngon">
       <meta property="og:description" content="Công thức dễ làm">
+      <meta property="og:video:secure_url" content="https://video.fsgn2-9.fna.fbcdn.net/dish.mp4">
     `;
     const fetchImplementation = async () =>
       new Response(html, { status: 200, headers: { "content-type": "text/html" } });
@@ -30,8 +31,28 @@ describe("fetchFacebookMetadata", () => {
       ),
     ).resolves.toEqual({
       imageUrl: "https://scontent.fbcdn.net/dish.jpg",
+      videoUrl: "https://video.fsgn2-9.fna.fbcdn.net/dish.mp4",
       title: "Món ngon",
       description: "Công thức dễ làm",
+    });
+  });
+
+  it("ignores an unsafe direct video URL while retaining the thumbnail fallback", async () => {
+    const html = `
+      <meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">
+      <meta property="og:video" content="https://example.com/dish.mp4">
+    `;
+    const fetchImplementation = async () =>
+      new Response(html, { status: 200, headers: { "content-type": "text/html" } });
+
+    await expect(
+      fetchFacebookMetadata(
+        new URL("https://www.facebook.com/reel/123"),
+        fetchImplementation as typeof fetch,
+      ),
+    ).resolves.toMatchObject({
+      imageUrl: "https://scontent.fbcdn.net/dish.jpg",
+      videoUrl: undefined,
     });
   });
 

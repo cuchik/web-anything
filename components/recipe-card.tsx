@@ -1,7 +1,8 @@
-import { Check, Clock3, Copy, ExternalLink, Flame, ImageIcon, Save, Users } from "lucide-react";
+import { Check, Clock3, Copy, ExternalLink, Film, Flame, ImageIcon, Save, Users } from "lucide-react";
 import type { RecipeAnalysis } from "@/lib/recipes/schema";
 
 export type DisplayRecipe = RecipeAnalysis & {
+  analysisMode: "video" | "thumbnail";
   image: string;
   sourceUrl: string;
   promptVersion: string;
@@ -22,6 +23,7 @@ type RecipeCardProps = {
 };
 
 export function RecipeCard({ recipe, onCopy, saveLabel, saveDisabled = false, onSave }: RecipeCardProps) {
+  const isVideoAnalysis = recipe.analysisMode === "video";
   return (
     <article className="recipe-card">
       <div className="dish-media">
@@ -33,7 +35,10 @@ export function RecipeCard({ recipe, onCopy, saveLabel, saveDisabled = false, on
           decoding="async"
           referrerPolicy="no-referrer"
         />
-        <span className="frame-badge"><ImageIcon size={15} /> Ảnh đại diện video</span>
+        <span className="frame-badge">
+          {isVideoAnalysis ? <Film size={15} /> : <ImageIcon size={15} />}
+          {isVideoAnalysis ? "Phân tích video đa khung hình" : "Fallback ảnh đại diện"}
+        </span>
         {recipe.promptVersion === "sample" ? (
           <span className="play-overlay sample-overlay" aria-label="Kết quả minh họa">
             <ImageIcon size={22} />
@@ -52,7 +57,11 @@ export function RecipeCard({ recipe, onCopy, saveLabel, saveDisabled = false, on
         )}
         <div className="media-caption">
           <span>Từ video Facebook</span>
-          <small>AI phân tích ảnh đại diện, không đọc toàn bộ video</small>
+          <small>
+            {isVideoAnalysis
+              ? "Gemini lấy mẫu nhiều khung hình xuyên suốt video"
+              : "Facebook không cung cấp video trực tiếp; AI dùng ảnh đại diện"}
+          </small>
         </div>
       </div>
 
@@ -105,7 +114,10 @@ export function RecipeCard({ recipe, onCopy, saveLabel, saveDisabled = false, on
         )}
 
         <p className="ai-disclaimer">
-          Công thức được AI ước tính từ một ảnh đại diện. Hãy kiểm tra nguyên liệu, dị ứng và độ chín an toàn trước khi dùng.
+          {isVideoAnalysis
+            ? "Công thức được AI tổng hợp từ các khung hình trong video. "
+            : "Công thức được AI ước tính từ ảnh đại diện. "}
+          Hãy kiểm tra nguyên liệu, dị ứng và độ chín an toàn trước khi dùng.
         </p>
 
         <div className="recipe-actions">

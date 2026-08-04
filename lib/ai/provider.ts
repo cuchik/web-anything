@@ -1,7 +1,8 @@
 import type { RecipeAnalysis } from "@/lib/recipes/schema";
 
 export type RecipeAnalysisInput = {
-  imageUrl: string;
+  mediaUrl: string;
+  mediaKind: "image" | "video";
   sourceTitle: string;
   sourceDescription: string;
 };

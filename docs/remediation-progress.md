@@ -11,8 +11,8 @@
 - [x] Make UI claims/actions truthful and accessible.
 - [x] Add SIWC-gated D1 saved recipes.
 - [x] Add repository docs, `AGENTS.md` and evaluation skill.
-- [ ] Rotate the previously shared Gemini key (owner action).
-- [ ] Configure hosted `USER_ID_PEPPER` and replacement Gemini key (owner/hosting action).
-- [ ] Choose an open-source or proprietary license (owner decision).
+- [x] Rotate the previously shared Gemini key (owner completed).
+- [x] Configure hosted `USER_ID_PEPPER` and replacement Gemini key (owner completed).
+- [x] Adopt the MIT License.
 - [ ] Push local commits to the currently empty GitHub remote (owner approval required).
-- [ ] Implement full-video multi-frame analysis after Meta/platform review (separate product milestone).
+- [x] Implement Gemini multi-frame video analysis with a truthful thumbnail fallback.

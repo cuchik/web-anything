@@ -1,8 +1,8 @@
 # Bếp Từ Video
 
-Bếp Từ Video nhận link Reel/video Facebook công khai, đọc ảnh đại diện của video và dùng Gemini Vision để tạo một công thức tiếng Việt có ghi rõ điều AI quan sát được và điều AI suy đoán.
+Bếp Từ Video nhận link Reel/video Facebook công khai, dùng Gemini đọc nhiều khung hình xuyên suốt video và tạo một công thức tiếng Việt có ghi rõ điều AI quan sát được và điều AI suy đoán.
 
-> Ứng dụng hiện phân tích **ảnh đại diện**, không tải hay đọc toàn bộ video. Công thức, định lượng và calories là ước tính; người dùng phải kiểm tra dị ứng và an toàn thực phẩm.
+> Khi Facebook không cung cấp direct video URL an toàn, ứng dụng fallback về **ảnh đại diện** và ghi rõ chế độ này trong kết quả. Công thức, định lượng và calories vẫn là ước tính; người dùng phải kiểm tra dị ứng và an toàn thực phẩm.
 
 ## Stack
 
@@ -53,8 +53,8 @@ Browser
   -> POST /api/analyze
   -> URL validation + D1 rate limit/cache
   -> safe Facebook metadata fetch
-  -> bounded Facebook CDN image fetch
-  -> Gemini structured output
+  -> validated Facebook CDN video or thumbnail fetch
+  -> Gemini inline video / Files API / image analysis
   -> runtime schema validation
   -> observations / assumptions / warnings
 
@@ -69,12 +69,13 @@ Xem [architecture](docs/architecture.md), [API](docs/api/analyze.md), [AI contra
 ## Product limitations
 
 - Facebook có thể chặn metadata của video private, login-gated hoặc region-limited.
-- Không có fallback ảnh giả cho request thật; app trả lỗi rõ ràng nếu không lấy được ảnh.
+- Không có fallback ảnh giả cho request thật; thumbnail fallback luôn là ảnh thật của chính video.
+- Video dưới giới hạn inline được gửi trực tiếp; video lớn hơn được stream tạm thời qua Gemini Files API và xóa sau khi phân tích.
+- Facebook có thể không xuất direct video metadata; khi đó app phân tích thumbnail và hiển thị rõ giới hạn này.
 - Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
-- Video/frame extraction thật nằm ngoài MVP hiện tại và cần Meta/platform compliance review.
 
 ## Contributing and security
 
 Đọc [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) và [AGENTS.md](AGENTS.md) trước khi thay đổi code.
 
-Repo chưa có license công khai. Cho đến khi chủ sở hữu chọn license, hãy xem source là private và không tái phân phối.
+Dự án được phát hành theo [MIT License](LICENSE).

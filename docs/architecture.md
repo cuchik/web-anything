@@ -13,12 +13,15 @@
 
 ## Trust boundaries
 
-Facebook URLs, redirects, HTML metadata, images, Gemini responses and client save payloads are untrusted. Each boundary has an allowlist, size limit or runtime schema. Authentication is accepted only from dispatch-owned Sites headers and authorization is enforced server-side.
+Facebook URLs, redirects, HTML metadata, images, videos, Gemini upload responses, model responses and client save payloads are untrusted. Each boundary has an allowlist, size limit or runtime schema. Authentication is accepted only from dispatch-owned Sites headers and authorization is enforced server-side.
 
 ## Runtime data flow
 
 ```text
-URL -> validate -> rate limit -> cache lookup -> Facebook HTML
-    -> validate OG image -> bounded image download -> Gemini
-    -> Zod validation -> cache -> browser
+URL -> validate -> rate limit -> versioned cache -> Facebook HTML
+    -> validate OG video + thumbnail
+    -> video available? -> small: bounded inline video -> Gemini (1 FPS sampling)
+                        -> larger: streamed Files API upload -> Gemini -> delete file
+    -> no safe video / recoverable video failure -> bounded thumbnail -> Gemini
+    -> Zod validation -> label analysisMode -> cache -> browser
 ```

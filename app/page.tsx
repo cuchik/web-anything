@@ -22,6 +22,7 @@ type SessionState = {
 
 const sampleRecipe: DisplayRecipe = {
   isFood: true,
+  analysisMode: "thumbnail",
   title: "Rau củ hầm kiểu nhà",
   subtitle: "Rau củ mềm ngọt trong nước dùng thanh nhẹ",
   image:
@@ -51,7 +52,7 @@ const sampleRecipe: DisplayRecipe = {
   promptVersion: "sample",
 };
 
-const stages = ["Kiểm tra link", "Đọc ảnh đại diện", "AI ước tính công thức"];
+const stages = ["Kiểm tra link", "Đọc video đa khung hình", "AI tổng hợp công thức"];
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -121,7 +122,7 @@ export default function Home() {
         error?: { message?: string };
       };
       if (!response.ok || !data.recipe) {
-        throw new Error(data.error?.message || "Không thể phân tích ảnh đại diện của video");
+        throw new Error(data.error?.message || "Không thể phân tích video này");
       }
       setRecipe(data.recipe);
       setTimeout(() => setStatus("done"), 350);
@@ -229,8 +230,8 @@ export default function Home() {
           <div className="eyebrow"><span /> Từ video thành bữa ngon</div>
           <h1>Thấy món ngon trên Facebook?<br /><em>Mang công thức về đây.</em></h1>
           <p className="hero-lead">
-            Dán link Reel hoặc video công khai. Bếp AI sẽ đọc ảnh đại diện,
-            nhận diện món ăn và viết một công thức gợi ý cho bạn.
+            Dán link Reel hoặc video công khai. Bếp AI sẽ đọc nhiều khung hình,
+            nhận diện các bước nấu và viết một công thức gợi ý cho bạn.
           </p>
 
           <form className={`url-box ${status === "error" ? "has-error" : ""}`} onSubmit={onSubmit}>
@@ -267,7 +268,7 @@ export default function Home() {
           </form>
           {status === "error" && <p className="error-message">{message}</p>}
           <p className="privacy-note">
-            Khi bạn phân tích, ảnh đại diện và mô tả công khai của video được gửi tới Google Gemini.
+            Khi bạn phân tích, video hoặc ảnh đại diện cùng mô tả công khai được gửi tạm thời tới Google Gemini.
             Không nhập link riêng tư hoặc nội dung nhạy cảm.
           </p>
 
@@ -276,7 +277,7 @@ export default function Home() {
           </button>
 
           <div className="trust-row">
-            <div><ImageIcon size={18} /><span><strong>Đọc ảnh đại diện</strong>Không cần chụp màn hình</span></div>
+            <div><ImageIcon size={18} /><span><strong>Đọc đa khung hình</strong>Theo dõi món ăn xuyên suốt video</span></div>
             <div><Sparkles size={18} /><span><strong>Phân biệt suy đoán</strong>Biết điều gì AI chưa chắc</span></div>
             <div><Check size={18} /><span><strong>Công thức gợi ý</strong>Kiểm tra lại trước khi nấu</span></div>
           </div>
@@ -287,7 +288,13 @@ export default function Home() {
         <div className="section-heading">
           <span className="section-kicker"><Sparkles size={14} /> Bếp AI đã tìm thấy</span>
           <h2>{showResult ? "Công thức từ video của bạn" : "Một video. Một công thức hoàn chỉnh."}</h2>
-          <p>{showResult ? "Kết quả được ước tính từ ảnh đại diện và có thể cần bạn điều chỉnh." : "Đây là kết quả mẫu — hãy dán link của bạn để bắt đầu."}</p>
+          <p>
+            {showResult
+              ? recipe.analysisMode === "video"
+                ? "Kết quả được tổng hợp từ nhiều khung hình và vẫn có thể cần bạn điều chỉnh."
+                : "Facebook không cung cấp video trực tiếp, nên kết quả này được ước tính từ ảnh đại diện."
+              : "Đây là kết quả mẫu — hãy dán link của bạn để bắt đầu."}
+          </p>
         </div>
 
         <RecipeCard

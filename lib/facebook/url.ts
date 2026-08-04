@@ -53,7 +53,7 @@ export function parseFacebookVideoUrl(value: string) {
   return url;
 }
 
-export function isAllowedFacebookImageUrl(url: URL) {
+export function isAllowedFacebookMediaUrl(url: URL) {
   const host = url.hostname.toLowerCase();
   return (
     url.protocol === "https:" &&
@@ -65,6 +65,10 @@ export function isAllowedFacebookImageUrl(url: URL) {
       host.endsWith(".fbsbx.com") ||
       isFacebookHost(host))
   );
+}
+
+export function isAllowedFacebookImageUrl(url: URL) {
+  return isAllowedFacebookMediaUrl(url);
 }
 
 export function isAllowedAnalysisImageUrl(url: URL) {

@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "Bếp Từ Video — Biến video Facebook thành công thức";
-  const description = "Phân tích ảnh đại diện của video Facebook và tạo một công thức gợi ý chỉ trong vài giây.";
+  const description = "Phân tích nhiều khung hình trong video Facebook và tạo một công thức gợi ý chỉ trong vài giây.";
 
   return {
     metadataBase: new URL(origin),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isAllowedFacebookImageUrl,
+  isAllowedFacebookMediaUrl,
   parseFacebookVideoUrl,
 } from "@/lib/facebook/url";
 
@@ -34,5 +35,18 @@ describe("isAllowedFacebookImageUrl", () => {
   it("rejects arbitrary and non-HTTPS images", () => {
     expect(isAllowedFacebookImageUrl(new URL("https://example.com/image.jpg"))).toBe(false);
     expect(isAllowedFacebookImageUrl(new URL("http://scontent.fbcdn.net/image.jpg"))).toBe(false);
+  });
+});
+
+describe("isAllowedFacebookMediaUrl", () => {
+  it("accepts HTTPS video URLs from Facebook CDN", () => {
+    expect(
+      isAllowedFacebookMediaUrl(new URL("https://video.fsgn2-9.fna.fbcdn.net/reel.mp4")),
+    ).toBe(true);
+  });
+
+  it("rejects credentials and non-Facebook hosts", () => {
+    expect(isAllowedFacebookMediaUrl(new URL("https://user:pass@fbcdn.net/reel.mp4"))).toBe(false);
+    expect(isAllowedFacebookMediaUrl(new URL("https://cdn.example.com/reel.mp4"))).toBe(false);
   });
 });
