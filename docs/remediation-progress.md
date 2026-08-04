@@ -14,5 +14,6 @@
 - [x] Rotate the previously shared Gemini key (owner completed).
 - [x] Configure hosted `USER_ID_PEPPER` and replacement Gemini key (owner completed).
 - [x] Adopt the MIT License.
-- [ ] Push local commits to the currently empty GitHub remote (owner approval required).
+- [x] Push the validated source to GitHub and the Sites source repository.
 - [x] Implement Gemini multi-frame video analysis with a truthful thumbnail fallback.
+- [x] Deploy the new version with production environment revision 1.
