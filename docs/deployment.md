@@ -18,6 +18,20 @@ deployed environment. The same coupling means this app must not be hosted anywhe
 that does not strip those client-supplied headers: it trusts them without
 verification, so any other host would allow trivial user impersonation.
 
+## Known trap: migration directory mismatch
+
+`drizzle.config.ts` writes migrations to `./drizzle`, but the `wrangler.json` that
+`vinext build` generates into `dist/server/` points `migrations_dir` at
+`../../migrations`, which does not exist in this repository. `wrangler d1 migrations
+apply` would therefore find nothing, and the generated config also carries the
+placeholder `database_id` `00000000-0000-4000-8000-000000000000` from
+`vite.config.ts` rather than a real one — Sites substitutes the actual resource.
+
+This does not affect a release that adds no migration: the three files in `drizzle/`
+match `db/schema.ts` exactly. Before shipping any release that does add one, confirm
+how Sites applies D1 migrations and reconcile the two directories, otherwise the new
+table or column silently never reaches production.
+
 ## Audited exceptions
 
 `pnpm.auditConfig.ignoreGhsas` in `package.json` suppresses two high advisories on
