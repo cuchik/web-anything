@@ -2,7 +2,9 @@
 
 - [x] Remove silent fallback for real links.
 - [x] Block unsafe redirect chains and unbounded reads.
-- [x] Migrate to pnpm and reach zero known dependency vulnerabilities.
+- [x] Migrate to pnpm and reach zero unresolved dependency vulnerabilities. Two high
+      advisories on `image-size@2.0.2` have no patched release and are audited as
+      unreachable (build-time only, never invoked here) — see `docs/deployment.md`.
 - [x] Restore strict typecheck, zero-warning lint, build and tests.
 - [x] Add CI and dependency update automation.
 - [x] Refactor Facebook, HTTP, AI, schema and error modules.

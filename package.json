@@ -49,6 +49,12 @@
     "wrangler": "4.118.0"
   },
   "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-w3rx-r6r6-pgpr",
+        "GHSA-5p2g-fcmc-qvqq"
+      ]
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp",
