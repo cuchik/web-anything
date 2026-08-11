@@ -14,9 +14,13 @@ Bếp Từ Video nhận link Reel/video Facebook công khai, dùng Gemini đọc
 
 ## Local setup
 
-Yêu cầu Node.js `>=22.13.0` và pnpm version ghi trong `package.json`.
+Yêu cầu Node.js `>=22.13.0` và pnpm version ghi trong `package.json`. Repo pin Node
+qua `.nvmrc` (24, khớp với CI) — dùng `nvm use` để lấy đúng version, và `corepack
+enable pnpm` để pnpm khớp field `packageManager`.
 
 ```bash
+nvm use
+corepack enable pnpm
 pnpm install --frozen-lockfile
 cp .env.example .env.local
 pnpm dev
