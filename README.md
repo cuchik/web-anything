@@ -1,21 +1,21 @@
 # Bếp Từ Video
 
-Bếp Từ Video nhận link Reel/video Facebook công khai, dùng Gemini đọc nhiều khung hình xuyên suốt video và tạo một công thức tiếng Việt có ghi rõ điều AI quan sát được và điều AI suy đoán.
+Bếp Từ Video takes a link to a public Facebook Reel or video, uses Gemini to read multiple frames across the video, and produces a Vietnamese recipe that states plainly what the AI observed and what it inferred.
 
-> Khi Facebook không cung cấp direct video URL an toàn, ứng dụng fallback về **ảnh đại diện** và ghi rõ chế độ này trong kết quả. Công thức, định lượng và calories vẫn là ước tính; người dùng phải kiểm tra dị ứng và an toàn thực phẩm.
+> When Facebook does not expose a safe direct video URL, the app falls back to the **thumbnail** and labels that mode in the result. Recipes, quantities and calories are still estimates; users must check allergies and food safety themselves.
 
 ## Stack
 
-- Next.js 16 + React 19 chạy qua Vinext/Vite
-- Cloudflare Workers và OpenAI Sites
+- Next.js 16 + React 19 running through Vinext/Vite
+- Cloudflare Workers and OpenAI Sites
 - Gemini Vision
-- Cloudflare D1 + Drizzle cho accounts, sessions, saved recipes, distributed rate limit và short-lived analysis cache
-- Đăng nhập bằng username + password của chính ứng dụng (PBKDF2 + session cookie), không phụ thuộc nền tảng; email là tuỳ chọn, chỉ dùng để đặt lại mật khẩu
-- pnpm, TypeScript strict, ESLint, Vitest và Node render tests
+- Cloudflare D1 + Drizzle for accounts, sessions, saved recipes, distributed rate limiting and a short-lived analysis cache
+- First-party username and password sign-in (PBKDF2 + session cookie), with no dependency on the hosting platform; email is optional and used only for password reset
+- pnpm, strict TypeScript, ESLint, Vitest and Node render tests
 
 ## Local setup
 
-Yêu cầu Node.js `>=22.13.0` và pnpm version ghi trong `package.json`.
+Requires Node.js `>=22.13.0` and the pnpm version pinned in `package.json`.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -23,7 +23,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Cấu hình `.env.local`:
+Configure `.env.local`:
 
 ```dotenv
 GEMINI_API_KEY=your_server_side_key
@@ -32,9 +32,9 @@ USER_ID_PEPPER=a_long_random_server_secret
 APP_URL=http://localhost:3001
 ```
 
-Không commit `.env.local`. Nếu chỉ test giao diện, app có thể chạy không cần D1; analyze cần Gemini key, còn đăng ký/đăng nhập và lưu recipe cần D1.
+Never commit `.env.local`. For UI-only work the app runs without D1; analysis needs the Gemini key, while registration, sign-in and saving recipes need D1.
 
-Ở local cứ để trống `RESEND_API_KEY` và `EMAIL_FROM`: liên kết đặt lại mật khẩu và xác minh email sẽ được ghi vào log thay vì gửi đi, đủ để chạy thử cả hai luồng.
+Leave `RESEND_API_KEY` and `EMAIL_FROM` empty locally: password-reset and email-verification links are written to the structured log instead of being sent, which is enough to walk through both flows.
 
 ## Commands
 
@@ -45,7 +45,7 @@ pnpm typecheck    # strict TypeScript
 pnpm test         # unit + server-render tests
 pnpm build        # production Worker build
 pnpm verify       # all required quality gates
-pnpm audit        # dependency vulnerabilities (chạy tay, CI không chạy)
+pnpm audit        # dependency vulnerabilities (manual; CI does not run it)
 pnpm db:generate  # generate D1 migrations after schema changes
 pnpm eval:offline # AI contract and prompt regression tests
 ```
@@ -62,11 +62,11 @@ Browser
   -> runtime schema validation
   -> observations / assumptions / warnings
 
-Đăng ký / đăng nhập
+Registration / sign-in
   -> POST /api/auth/*
   -> same-origin check + rate limit
   -> PBKDF2 hash/verify
-  -> session (chỉ lưu digest) trong D1 -> HttpOnly cookie
+  -> session in D1 (digest only) -> HttpOnly cookie
 
 Signed-in user
   -> /api/recipes
@@ -74,20 +74,20 @@ Signed-in user
   -> D1 saved recipes
 ```
 
-Xem [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) và [deployment](docs/deployment.md).
+See [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) and [deployment](docs/deployment.md).
 
 ## Product limitations
 
-- Facebook có thể chặn metadata của video private, login-gated hoặc region-limited.
-- Không có fallback ảnh giả cho request thật; thumbnail fallback luôn là ảnh thật của chính video.
-- Video dưới giới hạn inline được gửi trực tiếp; video lớn hơn được stream tạm thời qua Gemini Files API và xóa sau khi phân tích.
-- Facebook direct video fields là API không chính thức và có thể thay đổi; khi không tìm được hoặc tải video thất bại, app phân tích thumbnail và hiển thị rõ giới hạn này.
-- Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
-- Đăng ký chỉ cần username + password. Email là tuỳ chọn, thêm ở `/account`; tài khoản không có email thì **quên mật khẩu là mất tài khoản**.
-- Chưa có xóa tài khoản hoặc đổi username.
+- Facebook may block metadata for private, login-gated or region-limited videos.
+- No fake placeholder image is ever substituted for a real request; the thumbnail fallback is always the real thumbnail of that same video.
+- Videos under the inline limit are sent directly; larger ones are streamed temporarily through the Gemini Files API and deleted after analysis.
+- Facebook direct video fields are an undocumented API and may change; when no video is found or the download fails, the app analyses the thumbnail and states that limitation in the result.
+- Numeric confidence is not a calibrated probability; the UI only uses the confidence band.
+- Registration needs only a username and a password. Email is optional and added at `/account`; for an account with no email, **a forgotten password means a lost account**.
+- There is no account deletion or username change yet.
 
 ## Contributing and security
 
-Đọc [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) và [AGENTS.md](AGENTS.md) trước khi thay đổi code.
+Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and [AGENTS.md](AGENTS.md) before changing code.
 
-Dự án được phát hành theo [MIT License](LICENSE).
+Released under the [MIT License](LICENSE).
