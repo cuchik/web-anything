@@ -20,15 +20,18 @@
 - Route handlers orchestrate HTTP only; domain logic belongs in `lib/` or `db/`.
 - Keep Facebook URL/fetch policy in `lib/facebook` and `lib/http/safe-fetch.ts`.
 - Keep provider-specific AI code in `lib/ai`.
+- Keep credential, session and token logic in `lib/auth`; routes only orchestrate it. Never re-implement hashing, token generation or `return_to` validation in a route or component.
 - Share runtime-validated recipe schemas between server and client.
 - Access D1 through small `db/` modules; do not read bindings throughout UI code.
 
 ## Security and privacy
 
-- Never print, commit, or return API keys, user email, image bytes, or full Facebook URLs in logs.
+- Never print, commit, or return API keys, passwords, session or auth tokens, user email, image bytes, or full Facebook URLs in logs.
 - Validate every redirect; never reintroduce `redirect: "follow"` for user-influenced URLs.
 - Preserve response byte limits, video upload limits, temporary-file deletion, and approved host allowlists.
 - All saved-recipe reads and writes require server-side ownership checks.
+- Authentication is a first-party session record; identity must never be read from a request header. Store only digests of session and auth tokens, keep sign-in failures indistinguishable, keep forgot-password responses constant, and keep every state-changing route same-origin.
+- Build emailed links from `APP_URL`, never from the `Host` header.
 - Do not use localStorage as authoritative persistence.
 - Live Gemini evaluations require explicit user approval because they consume quota and send images to Google.
 

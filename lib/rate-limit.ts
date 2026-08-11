@@ -1,3 +1,5 @@
+import { ApplicationError } from "@/lib/errors/application-error";
+
 type RateLimitBucket = {
   count: number;
   resetAt: number;
@@ -89,6 +91,30 @@ export async function consumeRateLimit(key: string, partialOptions: RateLimitOpt
   const database = await getProductionDatabase();
   if (database) return consumeDatabaseRateLimit(database, key, options);
   return consumeMemoryRateLimit(key, options);
+}
+
+export type RateLimitBudget = {
+  key: string;
+  limit: number;
+  windowMs: number;
+};
+
+/** Applies every budget in order and rejects the request as soon as one is exhausted. */
+export async function assertRateLimit(budgets: RateLimitBudget[]) {
+  for (const budget of budgets) {
+    const result = await consumeRateLimit(budget.key, {
+      limit: budget.limit,
+      windowMs: budget.windowMs,
+    });
+    if (!result.allowed) {
+      throw new ApplicationError(
+        "RATE_LIMITED",
+        429,
+        `Bạn đã thử quá nhiều lần. Hãy đợi khoảng ${result.retryAfterSeconds} giây rồi thử lại.`,
+        true,
+      );
+    }
+  }
 }
 
 export function getClientKey(headers: Headers) {

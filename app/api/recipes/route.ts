@@ -1,44 +1,29 @@
-import { NextResponse } from "next/server";
 import { createRecipe, listRecipes } from "@/db/recipes";
 import { requireApiOwner } from "@/lib/auth/owner";
-import { toApplicationError } from "@/lib/errors/application-error";
+import { ApplicationError } from "@/lib/errors/application-error";
+import { apiErrorResponse, noStoreJson, readJsonBody } from "@/lib/http/api-response";
+import { assertSameOrigin } from "@/lib/http/request-origin";
 import { saveRecipeSchema } from "@/lib/recipes/saved-recipe";
-
-function errorResponse(error: unknown) {
-  const applicationError = toApplicationError(error);
-  return NextResponse.json(
-    { error: { code: applicationError.code, message: applicationError.publicMessage } },
-    { status: applicationError.status, headers: { "Cache-Control": "no-store" } },
-  );
-}
 
 export async function GET() {
   try {
     const { ownerKey } = await requireApiOwner();
-    return NextResponse.json(
-      { recipes: await listRecipes(ownerKey) },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    return noStoreJson({ recipes: await listRecipes(ownerKey) });
   } catch (error) {
-    return errorResponse(error);
+    return apiErrorResponse(error);
   }
 }
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const { ownerKey } = await requireApiOwner();
-    const parsed = saveRecipeSchema.safeParse(await request.json());
+    const parsed = saveRecipeSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: { code: "INVALID_RECIPE", message: "Công thức không hợp lệ để lưu." } },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
-      );
+      throw new ApplicationError("INVALID_RECIPE", 400, "Công thức không hợp lệ để lưu.");
     }
-    return NextResponse.json(
-      { recipe: await createRecipe(ownerKey, parsed.data) },
-      { status: 201, headers: { "Cache-Control": "no-store" } },
-    );
+    return noStoreJson({ recipe: await createRecipe(ownerKey, parsed.data) }, 201);
   } catch (error) {
-    return errorResponse(error);
+    return apiErrorResponse(error);
   }
 }

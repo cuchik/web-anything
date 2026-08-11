@@ -9,7 +9,8 @@ Bếp Từ Video nhận link Reel/video Facebook công khai, dùng Gemini đọc
 - Next.js 16 + React 19 chạy qua Vinext/Vite
 - Cloudflare Workers và OpenAI Sites
 - Gemini Vision
-- Cloudflare D1 + Drizzle cho saved recipes, distributed rate limit và short-lived analysis cache
+- Cloudflare D1 + Drizzle cho accounts, sessions, saved recipes, distributed rate limit và short-lived analysis cache
+- Đăng nhập bằng username + password của chính ứng dụng (PBKDF2 + session cookie), không phụ thuộc nền tảng
 - pnpm, TypeScript strict, ESLint, Vitest và Node render tests
 
 ## Local setup
@@ -28,9 +29,12 @@ Cấu hình `.env.local`:
 GEMINI_API_KEY=your_server_side_key
 GEMINI_MODEL=gemini-3.6-flash
 USER_ID_PEPPER=a_long_random_server_secret
+APP_URL=http://localhost:3001
 ```
 
-Không commit `.env.local`. Nếu chỉ test giao diện, app có thể chạy không cần D1; analyze cần Gemini key và lưu recipe cần Sites authentication + D1.
+Không commit `.env.local`. Nếu chỉ test giao diện, app có thể chạy không cần D1; analyze cần Gemini key, còn đăng ký/đăng nhập và lưu recipe cần D1.
+
+Ở local cứ để trống `RESEND_API_KEY` và `EMAIL_FROM`: liên kết đặt lại mật khẩu và xác minh email sẽ được ghi vào log thay vì gửi đi, đủ để chạy thử cả hai luồng.
 
 ## Commands
 
@@ -58,13 +62,19 @@ Browser
   -> runtime schema validation
   -> observations / assumptions / warnings
 
+Đăng ký / đăng nhập
+  -> POST /api/auth/*
+  -> same-origin check + rate limit
+  -> PBKDF2 hash/verify
+  -> session (chỉ lưu digest) trong D1 -> HttpOnly cookie
+
 Signed-in user
   -> /api/recipes
   -> server-side ownership check
   -> D1 saved recipes
 ```
 
-Xem [architecture](docs/architecture.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) và [deployment](docs/deployment.md).
+Xem [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) và [deployment](docs/deployment.md).
 
 ## Product limitations
 
@@ -73,6 +83,7 @@ Xem [architecture](docs/architecture.md), [API](docs/api/analyze.md), [AI contra
 - Video dưới giới hạn inline được gửi trực tiếp; video lớn hơn được stream tạm thời qua Gemini Files API và xóa sau khi phân tích.
 - Facebook direct video fields là API không chính thức và có thể thay đổi; khi không tìm được hoặc tải video thất bại, app phân tích thumbnail và hiển thị rõ giới hạn này.
 - Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
+- Chưa có xóa tài khoản, đổi username hoặc đổi email; email chưa xác minh vẫn đăng nhập được nhưng sẽ không đặt lại được mật khẩu khi quên.
 
 ## Contributing and security
 

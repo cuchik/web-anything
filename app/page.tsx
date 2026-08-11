@@ -6,19 +6,26 @@ import {
   ChefHat,
   ImageIcon,
   LoaderCircle,
+  LogOut,
+  MailWarning,
   Play,
   Save,
   Sparkles,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { RecipeCard, type DisplayRecipe } from "@/components/recipe-card";
+import { postAuth } from "@/lib/auth/client";
+import { signInPath } from "@/lib/auth/return-path";
 import type { SavedRecipe } from "@/lib/recipes/saved-recipe";
 
 type SessionState = {
   authenticated: boolean;
   displayName: string | null;
+  emailVerified: boolean;
   signInPath: string;
 };
+
+const FALLBACK_SIGN_IN_PATH = signInPath("/");
 
 const sampleRecipe: DisplayRecipe = {
   isFood: true,
@@ -92,7 +99,14 @@ export default function Home() {
           }
         }
       } catch {
-        if (active) setSession({ authenticated: false, displayName: null, signInPath: "/signin-with-chatgpt?return_to=%2F" });
+        if (active) {
+          setSession({
+            authenticated: false,
+            displayName: null,
+            emailVerified: false,
+            signInPath: FALLBACK_SIGN_IN_PATH,
+          });
+        }
       }
     })();
     return () => {
@@ -165,17 +179,39 @@ export default function Home() {
     }
   }
 
+  function goToSignIn() {
+    window.location.assign(session?.signInPath || FALLBACK_SIGN_IN_PATH);
+  }
+
   function openSavedRecipes() {
     if (!session?.authenticated) {
-      window.location.assign(session?.signInPath || "/signin-with-chatgpt?return_to=%2F");
+      goToSignIn();
       return;
     }
     document.querySelector("#saved-recipes")?.scrollIntoView({ behavior: "smooth" });
   }
 
+  async function signOut() {
+    try {
+      await postAuth("/api/auth/signout");
+      window.location.reload();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể đăng xuất");
+    }
+  }
+
+  async function resendVerification() {
+    try {
+      await postAuth("/api/auth/verify-email/resend");
+      showToast("Đã gửi lại email xác minh");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không gửi được email xác minh");
+    }
+  }
+
   async function saveRecipe() {
     if (!session?.authenticated) {
-      window.location.assign(session?.signInPath || "/signin-with-chatgpt?return_to=%2F");
+      goToSignIn();
       return;
     }
     setIsSaving(true);
@@ -220,8 +256,21 @@ export default function Home() {
           <button className="saved-button" onClick={openSavedRecipes}>
             <Save size={17} /> <span>{session?.authenticated ? `Đã lưu (${savedRecipes.length})` : "Đăng nhập để lưu"}</span>
           </button>
+          {session?.authenticated && (
+            <button className="saved-button" onClick={() => void signOut()} title="Đăng xuất">
+              <LogOut size={17} /> <span>Đăng xuất</span>
+            </button>
+          )}
         </div>
       </nav>
+
+      {session?.authenticated && !session.emailVerified && (
+        <div className="verify-banner" role="status">
+          <MailWarning size={16} />
+          <span>Email của bạn chưa được xác minh, nên chưa thể đặt lại mật khẩu khi cần.</span>
+          <button type="button" onClick={() => void resendVerification()}>Gửi lại email</button>
+        </div>
+      )}
 
       <section className="hero" id="top">
         <div className="hero-glow glow-one" />
@@ -311,7 +360,7 @@ export default function Home() {
           <div className="section-heading">
             <span className="section-kicker"><Save size={14} /> Sổ công thức của bạn</span>
             <h2 id="saved-title">Công thức đã lưu</h2>
-            <p>{session.displayName ? `Đang đăng nhập với ${session.displayName}` : "Các công thức gắn với tài khoản ChatGPT của bạn."}</p>
+            <p>{session.displayName ? `Đang đăng nhập với ${session.displayName}` : "Các công thức gắn với tài khoản của bạn."}</p>
           </div>
           {savedRecipes.length === 0 ? (
             <p className="saved-empty">Bạn chưa lưu công thức nào.</p>

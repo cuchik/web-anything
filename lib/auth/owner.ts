@@ -1,11 +1,9 @@
+import { toHex } from "@/lib/crypto/hex";
+import { readSessionUser } from "@/lib/auth/session";
 import { ApplicationError } from "@/lib/errors/application-error";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
 
-function toHex(bytes: ArrayBuffer) {
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export async function ownerKeyForEmail(email: string) {
+/** Recipes are keyed by a peppered digest of the stable user id, never by a raw identifier. */
+export async function ownerKeyForUser(userId: string) {
   const pepper = process.env.USER_ID_PEPPER?.trim();
   if (!pepper) {
     throw new ApplicationError(
@@ -23,17 +21,13 @@ export async function ownerKeyForEmail(email: string) {
     false,
     ["sign"],
   );
-  return toHex(await crypto.subtle.sign("HMAC", key, encoder.encode(email.trim().toLowerCase())));
+  return toHex(await crypto.subtle.sign("HMAC", key, encoder.encode(userId)));
 }
 
 export async function requireApiOwner() {
-  const user = await getChatGPTUser();
+  const user = await readSessionUser();
   if (!user) {
-    throw new ApplicationError(
-      "AUTH_REQUIRED",
-      401,
-      "Hãy đăng nhập bằng ChatGPT để lưu công thức.",
-    );
+    throw new ApplicationError("AUTH_REQUIRED", 401, "Hãy đăng nhập để lưu công thức.");
   }
-  return { user, ownerKey: await ownerKeyForEmail(user.email) };
+  return { user, ownerKey: await ownerKeyForUser(user.id) };
 }

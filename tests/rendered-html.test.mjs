@@ -36,6 +36,26 @@ test("server-renders the Bếp Từ Video product page", async () => {
   assert.doesNotMatch(html, /Your site is taking shape|Building your site|vinext-starter/i);
 });
 
+test("server-renders the first-party sign-in page", async () => {
+  const response = await render("/signin?return_to=%2F");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Tên đăng nhập/);
+  assert.match(html, /Mật khẩu/);
+  assert.match(html, /Quên mật khẩu/);
+  assert.doesNotMatch(html, /signin-with-chatgpt/);
+});
+
+test("server-renders the sign-up page", async () => {
+  const response = await render("/signup");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Tạo tài khoản/);
+  assert.match(html, /Nhập lại mật khẩu/);
+});
+
 test("includes product-specific social metadata", async () => {
   const response = await render();
   const html = await response.text();

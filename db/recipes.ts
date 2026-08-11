@@ -1,3 +1,4 @@
+import { getDatabase } from "@/db/client";
 import { ApplicationError } from "@/lib/errors/application-error";
 import type { SavedRecipe, SavedRecipePayload } from "@/lib/recipes/saved-recipe";
 
@@ -12,18 +13,6 @@ type RecipeRow = {
 };
 
 let schemaReady: Promise<void> | undefined;
-
-async function getDatabase() {
-  const { env } = await import("cloudflare:workers");
-  if (!env.DB) {
-    throw new ApplicationError(
-      "DATABASE_UNAVAILABLE",
-      503,
-      "Kho công thức chưa được cấu hình trên server.",
-    );
-  }
-  return env.DB;
-}
 
 async function ensureSchema() {
   schemaReady ??= (async () => {
