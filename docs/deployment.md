@@ -14,7 +14,7 @@ Optional:
 
 - `PASSWORD_HASH_ITERATIONS` — defaults to 210,000, clamped to 100,000–1,000,000. Roughly 50 ms of CPU per hash at the default, so the runtime needs a CPU budget well above 10 ms per request.
 
-Before release run `pnpm verify`, `pnpm audit`, inspect migrations, walk signup, sign-in, sign-out, adding an email at `/account`, forgot-password, reset-password and verify-email against the deployed origin, validate save/list/delete behaviour and test one public Facebook URL.
+Before release run `pnpm verify` and `pnpm audit` — this is the only point where dependencies are audited, since CI no longer does it — then inspect migrations, walk signup, sign-in, sign-out, adding an email at `/account`, forgot-password, reset-password and verify-email against the deployed origin, validate save/list/delete behaviour and test one public Facebook URL.
 
 Migration `0004` makes `users.email` nullable by recreating the table (SQLite cannot drop a NOT NULL constraint in place). It copies every existing row, but unlike the earlier migrations it is not purely additive — apply it to a deployed database deliberately, not as an afterthought.
 

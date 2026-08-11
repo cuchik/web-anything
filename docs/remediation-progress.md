@@ -4,7 +4,7 @@
 - [x] Block unsafe redirect chains and unbounded reads.
 - [x] Migrate to pnpm and reach zero known dependency vulnerabilities.
 - [x] Restore strict typecheck, zero-warning lint, build and tests.
-- [x] Add CI and dependency update automation.
+- [x] Add CI for lint, typecheck, build and tests. Dependency updates and `pnpm audit` were later moved back to manual review, so Dependabot and the CI audit step were removed.
 - [x] Refactor Facebook, HTTP, AI, schema and error modules.
 - [x] Add D1 rate limiting and analysis cache.
 - [x] Add AI observations, assumptions, warnings and non-food rejection.

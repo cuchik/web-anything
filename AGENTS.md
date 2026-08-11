@@ -12,7 +12,7 @@
 - Use the pnpm version pinned in `package.json`.
 - Keep exactly one lockfile: `pnpm-lock.yaml`.
 - Run `pnpm verify` after behavior changes.
-- Run `pnpm audit` after dependency changes.
+- Run `pnpm audit` after dependency changes. CI does not run it and no pre-commit hook exists, so an unreviewed vulnerability will not be caught for you.
 - Run `pnpm db:generate` and inspect generated SQL after `db/schema.ts` changes.
 
 ## Architecture boundaries

@@ -45,7 +45,7 @@ pnpm typecheck    # strict TypeScript
 pnpm test         # unit + server-render tests
 pnpm build        # production Worker build
 pnpm verify       # all required quality gates
-pnpm audit        # dependency vulnerabilities
+pnpm audit        # dependency vulnerabilities (chạy tay, CI không chạy)
 pnpm db:generate  # generate D1 migrations after schema changes
 pnpm eval:offline # AI contract and prompt regression tests
 ```
