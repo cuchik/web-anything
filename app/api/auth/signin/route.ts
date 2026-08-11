@@ -40,7 +40,11 @@ export async function POST(request: Request) {
 
     const cookie = await startSession(user.id, isSecureRequest(request));
     const response = noStoreJson({
-      user: { username: user.username, emailVerified: user.emailVerifiedAt !== null },
+      user: {
+        username: user.username,
+        hasEmail: Boolean(user.email),
+        emailVerified: user.emailVerifiedAt !== null,
+      },
     });
     response.cookies.set(cookie.name, cookie.value, cookie.options);
     logEvent("info", "auth.signin", {});

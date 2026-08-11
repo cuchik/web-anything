@@ -10,7 +10,7 @@ Bếp Từ Video nhận link Reel/video Facebook công khai, dùng Gemini đọc
 - Cloudflare Workers và OpenAI Sites
 - Gemini Vision
 - Cloudflare D1 + Drizzle cho accounts, sessions, saved recipes, distributed rate limit và short-lived analysis cache
-- Đăng nhập bằng username + password của chính ứng dụng (PBKDF2 + session cookie), không phụ thuộc nền tảng
+- Đăng nhập bằng username + password của chính ứng dụng (PBKDF2 + session cookie), không phụ thuộc nền tảng; email là tuỳ chọn, chỉ dùng để đặt lại mật khẩu
 - pnpm, TypeScript strict, ESLint, Vitest và Node render tests
 
 ## Local setup
@@ -83,7 +83,8 @@ Xem [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](
 - Video dưới giới hạn inline được gửi trực tiếp; video lớn hơn được stream tạm thời qua Gemini Files API và xóa sau khi phân tích.
 - Facebook direct video fields là API không chính thức và có thể thay đổi; khi không tìm được hoặc tải video thất bại, app phân tích thumbnail và hiển thị rõ giới hạn này.
 - Numeric confidence không phải xác suất đã calibration; UI chỉ dùng confidence band.
-- Chưa có xóa tài khoản, đổi username hoặc đổi email; email chưa xác minh vẫn đăng nhập được nhưng sẽ không đặt lại được mật khẩu khi quên.
+- Đăng ký chỉ cần username + password. Email là tuỳ chọn, thêm ở `/account`; tài khoản không có email thì **quên mật khẩu là mất tài khoản**.
+- Chưa có xóa tài khoản hoặc đổi username.
 
 ## Contributing and security
 

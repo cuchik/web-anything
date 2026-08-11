@@ -47,13 +47,27 @@ test("server-renders the first-party sign-in page", async () => {
   assert.doesNotMatch(html, /signin-with-chatgpt/);
 });
 
-test("server-renders the sign-up page", async () => {
+test("sign-up page asks only for a username and password", async () => {
   const response = await render("/signup");
   assert.equal(response.status, 200);
 
   const html = await response.text();
   assert.match(html, /Tạo tài khoản/);
-  assert.match(html, /Nhập lại mật khẩu/);
+  assert.match(html, /Tên đăng nhập/);
+  // No email field and no confirm-password field.
+  assert.doesNotMatch(html, /type="email"/);
+  assert.doesNotMatch(html, /Nhập lại mật khẩu/);
+});
+
+test("sign-up page lists every password rule", async () => {
+  const response = await render("/signup");
+  const html = await response.text();
+
+  assert.match(html, /Từ 8 ký tự trở lên/);
+  assert.match(html, /Có chữ thường/);
+  assert.match(html, /Có chữ hoa/);
+  assert.match(html, /Có chữ số/);
+  assert.match(html, /Có ký tự đặc biệt/);
 });
 
 test("includes product-specific social metadata", async () => {

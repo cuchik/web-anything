@@ -14,6 +14,13 @@ export async function POST(request: Request) {
     if (!user) {
       throw new ApplicationError("AUTH_REQUIRED", 401, "Hãy đăng nhập trước.");
     }
+    if (!user.email) {
+      throw new ApplicationError(
+        "EMAIL_MISSING",
+        400,
+        "Tài khoản chưa có email. Hãy thêm email trước.",
+      );
+    }
     if (user.emailVerified) return noStoreJson({ alreadyVerified: true });
 
     await assertRateLimit([
@@ -21,7 +28,7 @@ export async function POST(request: Request) {
       { key: `verify-resend-user:${user.id}`, limit: 3, windowMs: HOUR_MS },
     ]);
 
-    await sendEmailVerification(user, resolveAppOrigin(request));
+    await sendEmailVerification({ ...user, email: user.email }, resolveAppOrigin(request));
     return noStoreJson({ sent: true });
   } catch (error) {
     return apiErrorResponse(error);

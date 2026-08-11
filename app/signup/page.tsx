@@ -20,7 +20,7 @@ export default async function SignUpPage({
   return (
     <AuthPanel
       title="Tạo tài khoản"
-      lead="Đăng ký bằng tên đăng nhập và mật khẩu để lưu công thức của bạn."
+      lead="Chỉ cần tên đăng nhập và mật khẩu. Email là tuỳ chọn, thêm sau nếu bạn muốn đặt lại được mật khẩu."
       footer={
         <p>
           Đã có tài khoản? <Link href={signInPath(returnTo)}>Đăng nhập</Link>

@@ -29,9 +29,9 @@ export async function POST(request: Request) {
     await assertRateLimit([{ key: `forgot-email:${email}`, limit: 3, windowMs: HOUR_MS }]);
 
     const user = await findUserByEmail(email);
-    if (user) {
+    if (user?.email) {
       try {
-        await sendPasswordResetEmail(user, resolveAppOrigin(request));
+        await sendPasswordResetEmail({ ...user, email: user.email }, resolveAppOrigin(request));
       } catch (error) {
         logEvent("error", "auth.reset_email_failed", {
           code: error instanceof ApplicationError ? error.code : "UNKNOWN",

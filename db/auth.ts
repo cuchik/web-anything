@@ -7,7 +7,7 @@ export type AuthTokenPurpose = "password_reset" | "email_verification";
 export type UserRecord = {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   password: StoredPassword;
   emailVerifiedAt: number | null;
 };
@@ -15,14 +15,14 @@ export type UserRecord = {
 export type SessionUser = {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   emailVerified: boolean;
 };
 
 type UserRow = {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   password_hash: string;
   password_salt: string;
   password_iterations: number;
@@ -39,7 +39,7 @@ async function ensureSchema() {
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY NOT NULL,
           username TEXT NOT NULL,
-          email TEXT NOT NULL,
+          email TEXT,
           password_hash TEXT NOT NULL,
           password_salt TEXT NOT NULL,
           password_iterations INTEGER NOT NULL,
@@ -113,9 +113,13 @@ export async function findUserByEmail(email: string) {
   return row ? toUserRecord(row) : null;
 }
 
+function isUniqueViolation(error: unknown) {
+  // The unique indexes are the authoritative guard against a race between two writers.
+  return error instanceof Error && /UNIQUE constraint failed/i.test(error.message);
+}
+
 export async function createUser(input: {
   username: string;
-  email: string;
   password: StoredPassword;
 }): Promise<UserRecord> {
   await ensureSchema();
@@ -128,12 +132,11 @@ export async function createUser(input: {
         INSERT INTO users (
           id, username, email, password_hash, password_salt, password_iterations,
           email_verified_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+        ) VALUES (?, ?, NULL, ?, ?, ?, NULL, ?)
       `)
       .bind(
         id,
         input.username,
-        input.email,
         input.password.hash,
         input.password.salt,
         input.password.iterations,
@@ -141,13 +144,8 @@ export async function createUser(input: {
       )
       .run();
   } catch (error) {
-    // Unique indexes are the authoritative guard against a race between two signups.
-    if (error instanceof Error && /UNIQUE constraint failed/i.test(error.message)) {
-      throw new ApplicationError(
-        "ACCOUNT_EXISTS",
-        409,
-        "Tên đăng nhập hoặc email này đã được sử dụng.",
-      );
+    if (isUniqueViolation(error)) {
+      throw new ApplicationError("USERNAME_TAKEN", 409, "Tên đăng nhập này đã được sử dụng.");
     }
     throw error;
   }
@@ -155,10 +153,28 @@ export async function createUser(input: {
   return {
     id,
     username: input.username,
-    email: input.email,
+    email: null,
     password: input.password,
     emailVerifiedAt: null,
   };
+}
+
+/** Setting or changing the address always drops verification back to unverified. */
+export async function updateUserEmail(userId: string, email: string) {
+  await ensureSchema();
+  const database = await getDatabase();
+
+  try {
+    await database
+      .prepare("UPDATE users SET email = ?, email_verified_at = NULL WHERE id = ?")
+      .bind(email, userId)
+      .run();
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new ApplicationError("EMAIL_TAKEN", 409, "Email này đã được dùng cho tài khoản khác.");
+    }
+    throw error;
+  }
 }
 
 export async function updateUserPassword(userId: string, password: StoredPassword) {

@@ -1,11 +1,10 @@
-import { createUser, findUserByEmail, findUserByUsername } from "@/db/auth";
+import { createUser, findUserByUsername } from "@/db/auth";
 import { signUpSchema } from "@/lib/auth/credentials";
-import { sendEmailVerification } from "@/lib/auth/notifications";
 import { hashPassword } from "@/lib/auth/password";
 import { startSession } from "@/lib/auth/session";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { apiErrorResponse, noStoreJson, readJsonBody } from "@/lib/http/api-response";
-import { assertSameOrigin, isSecureRequest, resolveAppOrigin } from "@/lib/http/request-origin";
+import { assertSameOrigin, isSecureRequest } from "@/lib/http/request-origin";
 import { logEvent } from "@/lib/observability/logger";
 import { assertRateLimit, getClientKey } from "@/lib/rate-limit";
 
@@ -26,38 +25,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const { username, email, password } = parsed.data;
-    if ((await findUserByUsername(username)) || (await findUserByEmail(email))) {
-      throw new ApplicationError(
-        "ACCOUNT_EXISTS",
-        409,
-        "Tên đăng nhập hoặc email này đã được sử dụng.",
-      );
+    const { username, password } = parsed.data;
+    if (await findUserByUsername(username)) {
+      throw new ApplicationError("USERNAME_TAKEN", 409, "Tên đăng nhập này đã được sử dụng.");
     }
 
-    const user = await createUser({ username, email, password: await hashPassword(password) });
-
-    // A failed verification email must not roll back a valid account.
-    let verificationEmailSent = true;
-    try {
-      await sendEmailVerification(user, resolveAppOrigin(request));
-    } catch (error) {
-      verificationEmailSent = false;
-      logEvent("warn", "auth.verification_email_failed", {
-        code: error instanceof ApplicationError ? error.code : "UNKNOWN",
-      });
-    }
+    // Registration collects no email; it is added later from /account if the
+    // user wants password recovery.
+    const user = await createUser({ username, password: await hashPassword(password) });
 
     const cookie = await startSession(user.id, isSecureRequest(request));
     const response = noStoreJson(
-      {
-        user: { username: user.username, emailVerified: false },
-        verificationEmailSent,
-      },
+      { user: { username: user.username, hasEmail: false, emailVerified: false } },
       201,
     );
     response.cookies.set(cookie.name, cookie.value, cookie.options);
-    logEvent("info", "auth.signup", { verificationEmailSent });
+    logEvent("info", "auth.signup", {});
     return response;
   } catch (error) {
     return apiErrorResponse(error);

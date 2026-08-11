@@ -4,8 +4,9 @@ import { Check, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AuthField } from "@/components/auth-field";
+import { PasswordCriteria } from "@/components/password-criteria";
 import { postAuth } from "@/lib/auth/client";
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/credentials";
+import { failedPasswordRules, MAX_PASSWORD_LENGTH } from "@/lib/auth/credentials";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
@@ -58,11 +59,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         value={password}
         onChange={setPassword}
         autoComplete="new-password"
-        hint={`Ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`}
-        minLength={MIN_PASSWORD_LENGTH}
         maxLength={MAX_PASSWORD_LENGTH}
         disabled={isSubmitting}
       />
+      <PasswordCriteria value={password} />
       <AuthField
         label="Nhập lại mật khẩu mới"
         name="confirmPassword"
@@ -70,14 +70,17 @@ export function ResetPasswordForm({ token }: { token: string }) {
         value={confirmPassword}
         onChange={setConfirmPassword}
         autoComplete="new-password"
-        minLength={MIN_PASSWORD_LENGTH}
         maxLength={MAX_PASSWORD_LENGTH}
         disabled={isSubmitting}
       />
 
       {message && <p className="auth-error" role="alert">{message}</p>}
 
-      <button className="auth-submit" type="submit" disabled={isSubmitting}>
+      <button
+        className="auth-submit"
+        type="submit"
+        disabled={isSubmitting || failedPasswordRules(password).length > 0}
+      >
         {isSubmitting ? (
           <><LoaderCircle className="spin" size={17} /> Đang lưu</>
         ) : (

@@ -21,6 +21,7 @@ import type { SavedRecipe } from "@/lib/recipes/saved-recipe";
 type SessionState = {
   authenticated: boolean;
   displayName: string | null;
+  hasEmail: boolean;
   emailVerified: boolean;
   signInPath: string;
 };
@@ -103,6 +104,7 @@ export default function Home() {
           setSession({
             authenticated: false,
             displayName: null,
+            hasEmail: false,
             emailVerified: false,
             signInPath: FALLBACK_SIGN_IN_PATH,
           });
@@ -267,8 +269,17 @@ export default function Home() {
       {session?.authenticated && !session.emailVerified && (
         <div className="verify-banner" role="status">
           <MailWarning size={16} />
-          <span>Email của bạn chưa được xác minh, nên chưa thể đặt lại mật khẩu khi cần.</span>
-          <button type="button" onClick={() => void resendVerification()}>Gửi lại email</button>
+          {session.hasEmail ? (
+            <>
+              <span>Email của bạn chưa được xác minh, nên chưa thể đặt lại mật khẩu khi cần.</span>
+              <button type="button" onClick={() => void resendVerification()}>Gửi lại email</button>
+            </>
+          ) : (
+            <>
+              <span>Tài khoản chưa có email dự phòng. Nếu quên mật khẩu, bạn sẽ không lấy lại được.</span>
+              <a href="/account">Thêm email</a>
+            </>
+          )}
         </div>
       )}
 

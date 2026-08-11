@@ -5,7 +5,8 @@ export const users = sqliteTable(
   {
     id: text("id").primaryKey(),
     username: text("username").notNull(),
-    email: text("email").notNull(),
+    // Optional: added after sign-in, and only needed for password recovery.
+    email: text("email"),
     passwordHash: text("password_hash").notNull(),
     passwordSalt: text("password_salt").notNull(),
     passwordIterations: integer("password_iterations").notNull(),

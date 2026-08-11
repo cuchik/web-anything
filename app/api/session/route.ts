@@ -17,6 +17,8 @@ export async function GET() {
   return noStoreJson({
     authenticated: Boolean(user),
     displayName: user?.username ?? null,
+    email: user?.email ?? null,
+    hasEmail: Boolean(user?.email),
     emailVerified: user?.emailVerified ?? false,
     signInPath: signInPath("/"),
     signUpPath: signUpPath("/"),
