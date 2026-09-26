@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Cormorant_Garamond } from "next/font/google";
-import { headers } from "next/headers";
-import "./globals.css";
+import { getAppOrigin } from "@/lib/config/server";
+import "@/app/globals.css";
 
 const sans = Be_Vietnam_Pro({
   variable: "--font-sans",
@@ -16,10 +16,7 @@ const serif = Cormorant_Garamond({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("host") || "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const origin = `${protocol}://${host}`;
+  const origin = getAppOrigin();
   const title = "Bếp Từ Video — Biến video Facebook thành công thức";
   const description = "Phân tích nhiều khung hình trong video Facebook và tạo một công thức gợi ý chỉ trong vài giây.";
 

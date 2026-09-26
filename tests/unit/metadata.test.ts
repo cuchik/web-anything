@@ -14,6 +14,11 @@ describe("extractMetaContent", () => {
 });
 
 describe("fetchFacebookMetadata", () => {
+  it("rejects a canonical identity different from the requested video", async () => {
+    const fetchImplementation = async () => new Response('<meta property="og:url" content="https://www.facebook.com/reel/999"><meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">');
+    await expect(fetchFacebookMetadata(new URL("https://www.facebook.com/reel/123"), fetchImplementation as typeof fetch))
+      .rejects.toMatchObject({ code: "FACEBOOK_VIDEO_MISMATCH" });
+  });
   it("returns bounded, validated Facebook metadata", async () => {
     const html = `
       <meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">
@@ -32,6 +37,7 @@ describe("fetchFacebookMetadata", () => {
     ).resolves.toEqual({
       imageUrl: "https://scontent.fbcdn.net/dish.jpg",
       videoUrl: "https://video.fsgn2-9.fna.fbcdn.net/dish.mp4",
+      videoUrls: ["https://video.fsgn2-9.fna.fbcdn.net/dish.mp4"],
       title: "Món ngon",
       description: "Công thức dễ làm",
     });
@@ -59,7 +65,7 @@ describe("fetchFacebookMetadata", () => {
   it("uses an embedded Facebook progressive video when Open Graph omits video", async () => {
     const html = String.raw`
       <meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">
-      <script>{"browser_native_hd_url":"https:\/\/video.fbcdn.net\/dish-hd.mp4"}</script>
+      <script>{"id":"123","browser_native_hd_url":"https:\/\/video.fbcdn.net\/dish-hd.mp4"}</script>
     `;
     const fetchImplementation = async () =>
       new Response(html, { status: 200, headers: { "content-type": "text/html" } });

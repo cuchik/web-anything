@@ -1,35 +1,10 @@
-import type { SavedRecipePayload } from "@/lib/recipes/saved-recipe";
+import { saveRecipeSchema, type SavedRecipePayload } from "@/lib/recipes/saved-recipe";
+import { getOptionalDatabase as getDatabase } from "@/db/client";
 
 type CacheRow = {
   response_json: string;
   expires_at: number;
 };
-
-let schemaReady: Promise<void> | undefined;
-
-async function getDatabase() {
-  try {
-    const { env } = await import("cloudflare:workers");
-    return env.DB ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function ensureSchema(database: D1Database) {
-  schemaReady ??= database
-    .prepare(`
-      CREATE TABLE IF NOT EXISTS analysis_cache (
-        key TEXT PRIMARY KEY NOT NULL,
-        response_json TEXT NOT NULL,
-        expires_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `)
-    .run()
-    .then(() => undefined);
-  await schemaReady;
-}
 
 async function hashKey(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -39,7 +14,6 @@ async function hashKey(value: string) {
 export async function getCachedAnalysis(sourceUrl: string): Promise<SavedRecipePayload | null> {
   const database = await getDatabase();
   if (!database) return null;
-  await ensureSchema(database);
 
   const row = await database
     .prepare("SELECT response_json, expires_at FROM analysis_cache WHERE key = ?")
@@ -48,7 +22,7 @@ export async function getCachedAnalysis(sourceUrl: string): Promise<SavedRecipeP
   if (!row || row.expires_at <= Date.now()) return null;
 
   try {
-    return JSON.parse(row.response_json) as SavedRecipePayload;
+    return saveRecipeSchema.parse(JSON.parse(row.response_json));
   } catch {
     return null;
   }
@@ -57,10 +31,9 @@ export async function getCachedAnalysis(sourceUrl: string): Promise<SavedRecipeP
 export async function setCachedAnalysis(sourceUrl: string, recipe: SavedRecipePayload, ttlMs = 30 * 60 * 1_000) {
   const database = await getDatabase();
   if (!database) return;
-  await ensureSchema(database);
 
   const responseJson = JSON.stringify(recipe);
-  if (responseJson.length > 24_000) return;
+  if (new TextEncoder().encode(responseJson).byteLength > 24_000) return;
   const now = Date.now();
   await database
     .prepare(`

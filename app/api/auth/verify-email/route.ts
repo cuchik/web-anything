@@ -1,4 +1,4 @@
-import { consumeAuthToken, markEmailVerified } from "@/db/auth";
+import { verifyEmailWithToken } from "@/db/auth";
 import { verifyEmailSchema } from "@/lib/auth/credentials";
 import { hashAuthToken } from "@/lib/auth/token";
 import { ApplicationError } from "@/lib/errors/application-error";
@@ -20,11 +20,10 @@ export async function POST(request: Request) {
       throw new ApplicationError("INVALID_TOKEN", 400, "Mã xác minh không hợp lệ.");
     }
 
-    const userId = await consumeAuthToken(
+    const verified = await verifyEmailWithToken(
       await hashAuthToken(parsed.data.token),
-      "email_verification",
     );
-    if (!userId) {
+    if (!verified) {
       throw new ApplicationError(
         "VERIFY_TOKEN_INVALID",
         400,
@@ -32,7 +31,6 @@ export async function POST(request: Request) {
       );
     }
 
-    await markEmailVerified(userId);
     return noStoreJson({ verified: true });
   } catch (error) {
     return apiErrorResponse(error);

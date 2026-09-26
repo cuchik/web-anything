@@ -38,4 +38,6 @@ username + password -> same-origin check -> rate limit -> PBKDF2 verify
     -> requireApiOwner -> HMAC(pepper, userId) -> owner-scoped recipe rows
 ```
 
-Embedded Facebook media fields are undocumented and isolated in `lib/facebook/video-extractor.ts`. Extraction never expands the media allowlist, never stores signed CDN URLs, and remains an optional path: any missing, malformed or unusable video candidate falls back to the source video's validated thumbnail.
+Embedded Facebook media fields are undocumented and isolated in `lib/facebook/video-extractor.ts`. Extraction only traverses bounded JSON script payloads scoped to the requested video ID, with at most two HD/SD candidates. Recommendation videos and arbitrary JavaScript assignments are not used. Conflicting requested/resolved/canonical IDs fail the request. When no usable candidate exists, the source thumbnail is the labeled fallback. Direct video URLs are transient; thumbnail URLs may be stored in cache and recipes.
+
+`lib/config/server.ts` validates server configuration lazily. `APP_URL` is the only trusted public origin. `lib/http/security-headers.ts` is shared by Next configuration and the outer Worker response boundary. `db/retention.ts` handles bounded expiry cleanup; generated migrations alone own the schema.

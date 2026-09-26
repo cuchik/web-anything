@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+process.env.APP_URL = "https://app.example";
+
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -8,7 +10,7 @@ async function render(pathname = "/") {
 
   return worker.fetch(
     new Request(`http://localhost${pathname}`, {
-      headers: { accept: "text/html" },
+      headers: { accept: "text/html", host: "evil.example", "x-forwarded-proto": "http" },
     }),
     {
       ASSETS: {
@@ -75,6 +77,17 @@ test("includes product-specific social metadata", async () => {
   const html = await response.text();
 
   assert.match(html, /property="og:title" content="Bếp Từ Video/);
-  assert.match(html, /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/);
+  assert.match(html, /property="og:image" content="https:\/\/app\.example\/og\.png"/);
+  assert.doesNotMatch(html, /evil\.example/);
   assert.match(html, /name="twitter:card" content="summary_large_image"/);
+});
+
+test("security headers cover root, authentication and missing routes", async () => {
+  for (const path of ["/", "/signin", "/not-a-real-page"]) {
+    const response = await render(path);
+    assert.match(response.headers.get("content-security-policy") ?? "", /object-src 'none'/);
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+    await response.body?.cancel();
+  }
 });

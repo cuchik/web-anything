@@ -30,6 +30,14 @@ describe("saveRecipeSchema", () => {
   it("rejects invalid external values", () => {
     expect(() => saveRecipeSchema.parse({ ...payload, image: "not-a-url" })).toThrow();
   });
+  it.each(["javascript:alert(1)", "data:text/html,test", "https://evil.example/reel/123", "https://user:pass@www.facebook.com/reel/123"])("rejects unsafe source %s", (sourceUrl) => {
+    expect(saveRecipeSchema.safeParse({ ...payload, sourceUrl }).success).toBe(false);
+  });
+  it("rejects demo data and non-Facebook images without throwing in safeParse", () => {
+    expect(saveRecipeSchema.safeParse({ ...payload, image: "invalid" }).success).toBe(false);
+    expect(saveRecipeSchema.safeParse({ ...payload, promptVersion: "sample" }).success).toBe(false);
+    expect(saveRecipeSchema.safeParse({ ...payload, image: "https://images.unsplash.com/demo" }).success).toBe(false);
+  });
 });
 
 describe("ownerKeyForUser", () => {

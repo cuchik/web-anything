@@ -1,4 +1,5 @@
-import { findUserByEmail, updateUserEmail } from "@/db/auth";
+import { findUserByEmail, findUserByUsername, updateUserEmail } from "@/db/auth";
+import { verifyPassword } from "@/lib/auth/password";
 import { setEmailSchema } from "@/lib/auth/credentials";
 import { sendEmailVerification } from "@/lib/auth/notifications";
 import { readSessionUser } from "@/lib/auth/session";
@@ -23,19 +24,23 @@ export async function POST(request: Request) {
 
     const parsed = setEmailSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) throw new ApplicationError("INVALID_EMAIL", 400, "Email không hợp lệ.");
-    const { email } = parsed.data;
+    const { email, currentPassword } = parsed.data;
+    const account = await findUserByUsername(user.username);
+    if (!account || account.id !== user.id || !(await verifyPassword(currentPassword, account.password))) {
+      throw new ApplicationError("REAUTH_REQUIRED", 401, "Mật khẩu hiện tại không đúng.");
+    }
 
     const existing = await findUserByEmail(email);
     if (existing && existing.id !== user.id) {
       throw new ApplicationError("EMAIL_TAKEN", 409, "Email này đã được dùng cho tài khoản khác.");
     }
 
-    await updateUserEmail(user.id, email);
+    const updated = await updateUserEmail(account, email);
 
     // The address is saved either way; a failed send is reported so the user can retry.
     let verificationEmailSent = true;
     try {
-      await sendEmailVerification({ ...user, email }, resolveAppOrigin(request));
+      await sendEmailVerification(updated, resolveAppOrigin(request));
     } catch (error) {
       verificationEmailSent = false;
       logEvent("warn", "auth.verification_email_failed", {

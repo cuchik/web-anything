@@ -12,6 +12,9 @@ type AccountEmailFormProps = {
 
 export function AccountEmailForm({ currentEmail, emailVerified }: AccountEmailFormProps) {
   const [email, setEmail] = useState(currentEmail ?? "");
+  const [savedEmail, setSavedEmail] = useState(currentEmail);
+  const [verified, setVerified] = useState(emailVerified);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [message, setMessage] = useState("");
@@ -24,7 +27,11 @@ export function AccountEmailForm({ currentEmail, emailVerified }: AccountEmailFo
     try {
       const result = await postAuth<{ verificationEmailSent: boolean }>("/api/auth/email", {
         email,
+        currentPassword,
       });
+      setSavedEmail(email.trim().toLowerCase());
+      setVerified(false);
+      setCurrentPassword("");
       setNotice(
         result.verificationEmailSent
           ? "Đã lưu email và gửi liên kết xác minh. Hãy kiểm tra hộp thư."
@@ -39,10 +46,10 @@ export function AccountEmailForm({ currentEmail, emailVerified }: AccountEmailFo
 
   return (
     <form className="auth-form" onSubmit={(event) => void onSubmit(event)}>
-      {currentEmail && (
+      {savedEmail && (
         <p className="account-status">
-          Email hiện tại: <strong>{currentEmail}</strong>{" "}
-          {emailVerified ? "— đã xác minh" : "— chưa xác minh"}
+          Email hiện tại: <strong>{savedEmail}</strong>{" "}
+          {verified ? "— đã xác minh" : "— chưa xác minh"}
         </p>
       )}
 
@@ -59,6 +66,9 @@ export function AccountEmailForm({ currentEmail, emailVerified }: AccountEmailFo
       />
 
       {message && <p className="auth-error" role="alert">{message}</p>}
+      <AuthField label="Mật khẩu hiện tại" name="currentPassword" type="password"
+        value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password"
+        maxLength={200} disabled={isSubmitting} />
       {notice && (
         <p className="auth-notice" role="status">
           <Check size={16} /> {notice}
@@ -68,7 +78,7 @@ export function AccountEmailForm({ currentEmail, emailVerified }: AccountEmailFo
       <button className="auth-submit" type="submit" disabled={isSubmitting}>
         {isSubmitting ? (
           <><LoaderCircle className="spin" size={17} /> Đang lưu</>
-        ) : currentEmail ? (
+        ) : savedEmail ? (
           "Cập nhật email"
         ) : (
           "Lưu email"

@@ -115,9 +115,11 @@ describe("signUpSchema", () => {
 
 describe("setEmailSchema", () => {
   it("normalises the address added after sign-in", () => {
-    expect(setEmailSchema.parse({ email: " Chef@Example.COM " })).toEqual({
+    expect(setEmailSchema.parse({ email: " Chef@Example.COM ", currentPassword: "password" })).toEqual({
       email: "chef@example.com",
+      currentPassword: "password",
     });
+    expect(setEmailSchema.safeParse({ email: "chef@example.com" }).success).toBe(false);
     expect(setEmailSchema.safeParse({ email: "nope" }).success).toBe(false);
   });
 });

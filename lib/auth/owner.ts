@@ -1,10 +1,11 @@
 import { toHex } from "@/lib/crypto/hex";
 import { readSessionUser } from "@/lib/auth/session";
 import { ApplicationError } from "@/lib/errors/application-error";
+import { getServerConfig } from "@/lib/config/server";
 
 /** Recipes are keyed by a peppered digest of the stable user id, never by a raw identifier. */
 export async function ownerKeyForUser(userId: string) {
-  const pepper = process.env.USER_ID_PEPPER?.trim();
+  const pepper = getServerConfig().USER_ID_PEPPER;
   if (!pepper) {
     throw new ApplicationError(
       "MISSING_USER_ID_PEPPER",

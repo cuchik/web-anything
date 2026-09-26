@@ -153,3 +153,18 @@ describe("shouldFallbackToThumbnail", () => {
     ).toBe(false);
   });
 });
+
+describe("Gemini processing cleanup", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("deletes the uploaded file even when processing fails before prepareMediaPart returns", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    const fetchImplementation = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { headers: { "content-type": "video/mp4", "content-length": String(20 * 1024 * 1024) } }))
+      .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://generativelanguage.googleapis.com/upload/test" } }))
+      .mockResolvedValueOnce(Response.json({ file: { name: "files/test", uri: "https://generativelanguage.googleapis.com/v1beta/files/test", mimeType: "video/mp4", state: "FAILED" } }))
+      .mockResolvedValueOnce(new Response(null));
+    await expect(analyzeMediaWithGemini({ mediaUrl: "https://video.fbcdn.net/test.mp4", mediaKind: "video", sourceTitle: "", sourceDescription: "" }, fetchImplementation as typeof fetch))
+      .rejects.toMatchObject({ code: "GEMINI_FILE_PROCESSING_FAILED" });
+    expect(fetchImplementation.mock.calls[3]?.[1]).toMatchObject({ method: "DELETE" });
+  });
+});

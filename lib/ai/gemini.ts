@@ -1,4 +1,6 @@
 import { ApplicationError } from "@/lib/errors/application-error";
+import { getServerConfig } from "@/lib/config/server";
+import { logEvent } from "@/lib/observability/logger";
 import { isAllowedAnalysisImageUrl, isAllowedFacebookMediaUrl } from "@/lib/facebook/url";
 import { readBytesWithLimit, readTextWithLimit, safeFetch } from "@/lib/http/safe-fetch";
 import type { RecipeAnalysisInput } from "@/lib/ai/provider";
@@ -9,7 +11,7 @@ const maxInlineVideoBytes = 14 * 1024 * 1024;
 const maxUploadedVideoBytes = 100 * 1024 * 1024;
 const maxGeminiResponseBytes = 256 * 1024;
 const filePollAttempts = 24;
-export const GEMINI_PROMPT_VERSION = "2026-08-04.3-facebook-extractor";
+export const GEMINI_PROMPT_VERSION = "2026-09-26.1-video-identity";
 
 type GeminiFile = {
   name: string;
@@ -46,7 +48,7 @@ function isAllowedGeminiUploadUrl(value: string) {
       url.protocol === "https:" &&
       !url.username &&
       !url.password &&
-      (url.hostname === "generativelanguage.googleapis.com" || url.hostname.endsWith(".googleapis.com"))
+      !url.port && url.hostname === "generativelanguage.googleapis.com"
     );
   } catch {
     return false;
@@ -140,7 +142,8 @@ async function parseGeminiFile(response: Response) {
     });
   }
   const file = data.file ?? data;
-  if (!file.name || !file.uri || !file.mimeType) {
+  if (typeof file.name !== "string" || !/^files\/[a-zA-Z0-9_-]+$/.test(file.name) ||
+      typeof file.uri !== "string" || !isAllowedGeminiUploadUrl(file.uri) || typeof file.mimeType !== "string") {
     throw new ApplicationError("GEMINI_FILE_INVALID", 502, "Gemini không nhận được video hợp lệ.", true);
   }
   return file as GeminiFile;
@@ -179,7 +182,19 @@ async function uploadVideoToGemini(
       "X-Goog-Upload-Offset": "0",
       "X-Goog-Upload-Command": "upload, finalize",
     },
-    body: videoResponse.body,
+    body: videoResponse.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform: (() => {
+        let bytes = 0;
+        return (chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) => {
+          bytes += chunk.byteLength;
+          if (bytes > Math.min(contentLength, maxUploadedVideoBytes)) {
+            throw new ApplicationError("VIDEO_TOO_LARGE", 422, "Video vượt quá giới hạn cho phép.");
+          }
+          controller.enqueue(chunk);
+        };
+      })(),
+    })),
+    redirect: "error",
     duplex: "half",
     signal: AbortSignal.timeout(60_000),
   } as RequestInit & { duplex: "half" };
@@ -189,32 +204,42 @@ async function uploadVideoToGemini(
   }
 
   let file = await parseGeminiFile(uploadResponse);
-  for (let attempt = 0; file.state === "PROCESSING" && attempt < filePollAttempts; attempt += 1) {
-    await wait(1_000);
-    const statusResponse = await fetchImplementation(apiUrl(`v1beta/${file.name}`), {
-      headers: { "x-goog-api-key": apiKey },
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!statusResponse.ok) {
-      throw new ApplicationError("GEMINI_FILE_STATUS_FAILED", 502, "Gemini chưa xử lý xong video.", true);
+  const createdFile = file;
+  try {
+    for (let attempt = 0; file.state === "PROCESSING" && attempt < filePollAttempts; attempt += 1) {
+      await wait(1_000);
+      const statusResponse = await fetchImplementation(apiUrl(`v1beta/${createdFile.name}`), {
+        headers: { "x-goog-api-key": apiKey },
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!statusResponse.ok) {
+        throw new ApplicationError("GEMINI_FILE_STATUS_FAILED", 502, "Gemini chưa xử lý xong video.", true);
+      }
+      file = await parseGeminiFile(statusResponse);
+      if (file.name !== createdFile.name || file.uri !== createdFile.uri) {
+        throw new ApplicationError("GEMINI_FILE_INVALID", 502, "Gemini trả về file không khớp.", true);
+      }
     }
-    file = await parseGeminiFile(statusResponse);
+    if (file.state !== "ACTIVE") {
+      throw new ApplicationError("GEMINI_FILE_PROCESSING_FAILED", 502, "Gemini không thể xử lý video này.", true);
+    }
+    return file;
+  } catch (error) {
+    await deleteGeminiFile(createdFile, apiKey, fetchImplementation);
+    throw error;
   }
-  if (file.state !== "ACTIVE") {
-    throw new ApplicationError("GEMINI_FILE_PROCESSING_FAILED", 502, "Gemini không thể xử lý video này.", true);
-  }
-  return file;
 }
 
 async function deleteGeminiFile(file: GeminiFile, apiKey: string, fetchImplementation: typeof fetch) {
   try {
-    await fetchImplementation(apiUrl(`v1beta/${file.name}`), {
+    const response = await fetchImplementation(apiUrl(`v1beta/${file.name}`), {
       method: "DELETE",
       headers: { "x-goog-api-key": apiKey },
       signal: AbortSignal.timeout(5_000),
     });
+    if (!response.ok && response.status !== 404) logEvent("warn", "gemini.cleanup_failed", { status: response.status });
   } catch {
-    // Gemini files expire automatically; deletion is a best-effort privacy cleanup.
+    logEvent("warn", "gemini.cleanup_failed", { code: "NETWORK_ERROR" });
   }
 }
 
@@ -268,7 +293,8 @@ async function prepareMediaPart(
   if (!contentType.startsWith("video/")) {
     throw new ApplicationError("INVALID_VIDEO", 422, "Facebook không trả về định dạng video được hỗ trợ.");
   }
-  const declaredLength = Number(mediaResponse.headers.get("content-length"));
+  const rawLength = mediaResponse.headers.get("content-length");
+  const declaredLength = rawLength === null ? NaN : Number(rawLength);
   const contentLength = Number.isFinite(declaredLength) && declaredLength >= 0 ? declaredLength : null;
   const strategy = getVideoTransferStrategy(contentLength);
   if (strategy === "unsupported") {
@@ -332,15 +358,18 @@ export async function analyzeMediaWithGemini(
   input: RecipeAnalysisInput,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<RecipeAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
+  const { GEMINI_API_KEY: apiKey, GEMINI_MODEL: model } = getServerConfig();
   if (!apiKey) {
     throw new ApplicationError("MISSING_API_KEY", 503, "Server chưa được cấu hình Gemini API key.");
   }
 
   let uploadedFile: GeminiFile | undefined;
   try {
-    const prepared = await prepareMediaPart(input, apiKey, fetchImplementation);
+    const prepared = await prepareMediaPart(input, apiKey, fetchImplementation).catch((error: unknown) => {
+      if (error instanceof ApplicationError) throw error;
+      throw new ApplicationError(input.mediaKind === "video" ? "VIDEO_DOWNLOAD_FAILED" : "IMAGE_DOWNLOAD_FAILED",
+        502, "Không thể tải nội dung Facebook. Hãy thử lại.", true, { cause: error });
+    });
     uploadedFile = prepared.uploadedFile;
     let geminiResponse: Response;
     try {

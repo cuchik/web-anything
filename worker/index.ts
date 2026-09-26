@@ -1,6 +1,9 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { withSecurityHeaders } from "@/lib/http/security-headers";
+import { pruneExpiredData } from "@/db/retention";
+import { logEvent } from "@/lib/observability/logger";
 
 interface Env {
   ASSETS: Fetcher;
@@ -28,20 +31,36 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-
-    if (url.pathname === "/_vinext/image") {
-      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-        transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
-          return result.response();
-        },
-      }, allowedWidths);
+    if (env.DB && Date.now() >= nextRetentionAt) {
+      nextRetentionAt = Date.now() + 60 * 60 * 1_000;
+      ctx.waitUntil(pruneExpiredData(env.DB).catch(() => {
+        logEvent("warn", "retention.failed", { code: "DATABASE_ERROR" });
+      }));
     }
 
-    return handler.fetch(request, env, ctx);
+    try {
+      if (url.pathname === "/_vinext/image") {
+        const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
+        const response = await handleImageOptimization(request, {
+          fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
+          transformImage: async (body, { width, format, quality }) => {
+            const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+            return result.response();
+          },
+        }, allowedWidths);
+        return withSecurityHeaders(response, url.protocol === "https:");
+      }
+
+      return withSecurityHeaders(await handler.fetch(request, env, ctx), url.protocol === "https:");
+    } catch {
+      logEvent("error", "worker.request_failed", { code: "UNHANDLED_ERROR" });
+      return withSecurityHeaders(new Response("Ứng dụng tạm thời không khả dụng.", {
+        status: 503, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" },
+      }), url.protocol === "https:");
+    }
   },
 };
+
+let nextRetentionAt = 0;
 
 export default worker;

@@ -34,7 +34,9 @@ APP_URL=http://localhost:3001
 
 Never commit `.env.local`. For UI-only work the app runs without D1; analysis needs the Gemini key, while registration, sign-in and saving recipes need D1.
 
-Leave `RESEND_API_KEY` and `EMAIL_FROM` empty locally: password-reset and email-verification links are written to the structured log instead of being sent, which is enough to walk through both flows.
+Configure `RESEND_API_KEY` and `EMAIL_FROM` when testing email flows. Missing email configuration disables delivery in every environment; reset and verification links are never logged.
+
+Apply the checked-in migrations to an isolated local D1 before using accounts or saved recipes. Runtime requests no longer create tables. See the [release runbook](docs/release-runbook.md) and [progress report](docs/release-readiness.md).
 
 ## Commands
 
@@ -83,7 +85,8 @@ See [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](
 - Videos under the inline limit are sent directly; larger ones are streamed temporarily through the Gemini Files API and deleted after analysis.
 - Facebook direct video fields are an undocumented API and may change; when no video is found or the download fails, the app analyses the thumbnail and states that limitation in the result.
 - Numeric confidence is not a calibrated probability; the UI only uses the confidence band.
-- Registration needs only a username and a password. Email is optional and added at `/account`; for an account with no email, **a forgotten password means a lost account**.
+- Registration needs only a username and a password. Email is optional and added at `/account` with the current password; without a **verified** email, a forgotten password means a lost account.
+- At most 100 recipes can be saved per account. Demo recipes cannot be saved as real analysis.
 - There is no account deletion or username change yet.
 
 ## Contributing and security

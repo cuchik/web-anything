@@ -39,15 +39,19 @@ export async function readSessionUser(): Promise<SessionUser | null> {
 }
 
 /** Issues a fresh session id, so a sign-in never reuses a pre-existing token. */
-export async function startSession(userId: string, secure: boolean) {
+export async function startSession(userId: string, secure: boolean, passwordHash: string) {
   const { token, id } = await createAuthToken();
-  await createSession(id, userId, Date.now() + SESSION_TTL_MS);
+  await createSession(id, userId, Date.now() + SESSION_TTL_MS, passwordHash);
   return sessionCookie(token, secure, Math.floor(SESSION_TTL_MS / 1_000));
 }
 
 export async function endSession(secure: boolean) {
   const token = await readSessionToken();
   if (token) await deleteSession(await hashAuthToken(token));
+  return clearSessionCookie(secure);
+}
+
+export function clearSessionCookie(secure: boolean) {
   return sessionCookie("", secure, 0);
 }
 

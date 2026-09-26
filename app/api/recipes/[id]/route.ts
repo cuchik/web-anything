@@ -4,6 +4,7 @@ import { requireApiOwner } from "@/lib/auth/owner";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { apiErrorResponse } from "@/lib/http/api-response";
 import { assertSameOrigin } from "@/lib/http/request-origin";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function DELETE(
   request: Request,
@@ -12,6 +13,7 @@ export async function DELETE(
   try {
     assertSameOrigin(request);
     const { ownerKey } = await requireApiOwner();
+    await assertRateLimit([{ key: `recipe-write:${ownerKey}`, limit: 20, windowMs: 60_000 }]);
     const { id } = await context.params;
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       throw new ApplicationError("INVALID_RECIPE_ID", 400, "Mã công thức không hợp lệ.");

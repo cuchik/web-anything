@@ -4,7 +4,9 @@ Use Node.js and the pinned pnpm version. Copy `.env.example` to ignored `.env.lo
 
 Analysis needs `GEMINI_API_KEY`. Accounts and saved recipes need D1 and `USER_ID_PEPPER`: signing up, signing in and saving all write to D1, so those flows are unavailable without it. Anonymous browsing and analysis still work — an unauthenticated session lookup never touches the database, and protected APIs return an authentication error.
 
-Set `APP_URL` to the origin you browse (for example `http://localhost:3001`) so emailed links point back at your dev server. Leave `RESEND_API_KEY` and `EMAIL_FROM` empty locally: password-reset and verification links are written to the structured log instead of being sent, which is enough to walk through both flows. Recipient addresses are never logged.
+Set `APP_URL` to the exact origin you browse (for example `http://localhost:3001`). It controls same-origin validation and emailed links. Production requires HTTPS. Configure `RESEND_API_KEY` and `EMAIL_FROM` for email flows; links and recipient addresses are never logged. Apply checked-in migrations to the local D1 before using database-backed flows.
+
+Application code uses `@/` aliases. Build-loader configuration is the exception: Vinext reads `next.config.ts` before registering aliases, so its shared header-policy import uses the same relative-import convention as `vite.config.ts`.
 
 `PASSWORD_HASH_ITERATIONS` can be lowered locally if PBKDF2 makes sign-in feel slow. Do not lower it in a deployed environment.
 

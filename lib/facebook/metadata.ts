@@ -4,7 +4,8 @@ import {
   isAllowedFacebookMediaUrl,
   isFacebookHost,
 } from "@/lib/facebook/url";
-import { extractEmbeddedFacebookVideoUrl } from "@/lib/facebook/video-extractor";
+import { extractEmbeddedFacebookVideoUrls, facebookVideoId } from "@/lib/facebook/video-extractor";
+import { decodeHtmlEntities } from "@/lib/facebook/html";
 import { readTextWithLimit, safeFetch } from "@/lib/http/safe-fetch";
 
 const maxHtmlBytes = 2 * 1024 * 1024;
@@ -12,18 +13,10 @@ const maxHtmlBytes = 2 * 1024 * 1024;
 export type FacebookMetadata = {
   imageUrl: string;
   videoUrl?: string;
+  videoUrls: string[];
   title: string;
   description: string;
 };
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
 
 export function extractMetaContent(html: string, property: string) {
   const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -44,9 +37,11 @@ export async function fetchFacebookMetadata(
   fetchImplementation: typeof fetch = fetch,
 ): Promise<FacebookMetadata> {
   let response: Response;
+  let resolvedUrl = facebookVideoUrl;
   try {
     response = await safeFetch(facebookVideoUrl, {
-      isAllowedUrl: (url) => url.protocol === "https:" && isFacebookHost(url.hostname),
+      isAllowedUrl: (url) => url.protocol === "https:" && !url.port && !url.username && !url.password && isFacebookHost(url.hostname),
+      onFinalUrl: (url) => { resolvedUrl = url; },
       fetchImplementation,
       init: {
         headers: {
@@ -85,6 +80,15 @@ export async function fetchFacebookMetadata(
   }
 
   const html = await readTextWithLimit(response, maxHtmlBytes);
+  const requestedId = facebookVideoId(facebookVideoUrl);
+  const resolvedId = facebookVideoId(resolvedUrl);
+  let canonicalId: string | undefined;
+  try { canonicalId = facebookVideoId(new URL(extractMetaContent(html, "og:url"))); } catch { /* Optional metadata. */ }
+  const ids = [requestedId, resolvedId, canonicalId].filter(Boolean);
+  if (new Set(ids).size > 1) {
+    throw new ApplicationError("FACEBOOK_VIDEO_MISMATCH", 422, "Facebook trả về video khác với link đã nhập.");
+  }
+  const videoId = requestedId ?? resolvedId ?? canonicalId;
   const imageUrl = extractMetaContent(html, "og:image");
   if (!imageUrl) {
     throw new ApplicationError(
@@ -112,7 +116,7 @@ export async function fetchFacebookMetadata(
     .map((property) => extractMetaContent(html, property))
     .find(Boolean);
   let directVideoUrl: string | undefined;
-  if (rawVideoUrl) {
+  if (rawVideoUrl && videoId) {
     try {
       const parsedVideo = new URL(rawVideoUrl);
       if (isAllowedFacebookMediaUrl(parsedVideo)) directVideoUrl = parsedVideo.toString();
@@ -120,11 +124,13 @@ export async function fetchFacebookMetadata(
       // Video metadata is optional. A validated thumbnail remains a safe fallback.
     }
   }
-  directVideoUrl ??= extractEmbeddedFacebookVideoUrl(html);
+  const embedded = extractEmbeddedFacebookVideoUrls(html, videoId);
+  const videoUrls = [...new Set([directVideoUrl, ...embedded].filter((value): value is string => Boolean(value)))].slice(0, 2);
 
   return {
     imageUrl: parsedImage.toString(),
-    videoUrl: directVideoUrl,
+    videoUrl: videoUrls[0],
+    videoUrls,
     title: extractMetaContent(html, "og:title").slice(0, 500),
     description: extractMetaContent(html, "og:description").slice(0, 1_500),
   };

@@ -10,7 +10,7 @@ export function isFacebookHost(hostname: string) {
 }
 
 export function isFacebookVideoUrl(url: URL) {
-  if (url.protocol !== "https:" || !isFacebookHost(url.hostname)) return false;
+  if (url.protocol !== "https:" || url.port || url.username || url.password || !isFacebookHost(url.hostname)) return false;
   if (url.hostname.toLowerCase() === "fb.watch") return url.pathname !== "/";
 
   return (
@@ -57,6 +57,7 @@ export function isAllowedFacebookMediaUrl(url: URL) {
   const host = url.hostname.toLowerCase();
   return (
     url.protocol === "https:" &&
+    !url.port &&
     !url.username &&
     !url.password &&
     (host === "fbcdn.net" ||
@@ -72,6 +73,5 @@ export function isAllowedFacebookImageUrl(url: URL) {
 }
 
 export function isAllowedAnalysisImageUrl(url: URL) {
-  return isAllowedFacebookImageUrl(url) ||
-    (url.protocol === "https:" && url.hostname.toLowerCase() === "images.unsplash.com");
+  return isAllowedFacebookImageUrl(url);
 }

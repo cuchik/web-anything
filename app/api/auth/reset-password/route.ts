@@ -1,7 +1,7 @@
-import { consumeAuthToken, deleteSessionsForUser, updateUserPassword } from "@/db/auth";
+import { resetPasswordWithToken } from "@/db/auth";
 import { resetPasswordSchema } from "@/lib/auth/credentials";
 import { hashPassword } from "@/lib/auth/password";
-import { endSession } from "@/lib/auth/session";
+import { clearSessionCookie } from "@/lib/auth/session";
 import { hashAuthToken } from "@/lib/auth/token";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { apiErrorResponse, noStoreJson, readJsonBody } from "@/lib/http/api-response";
@@ -27,11 +27,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const userId = await consumeAuthToken(
+    const reset = await resetPasswordWithToken(
       await hashAuthToken(parsed.data.token),
-      "password_reset",
+      await hashPassword(parsed.data.password),
     );
-    if (!userId) {
+    if (!reset) {
       throw new ApplicationError(
         "RESET_TOKEN_INVALID",
         400,
@@ -39,11 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    await updateUserPassword(userId, await hashPassword(parsed.data.password));
-    // Every existing session is invalidated so a stolen session cannot survive a reset.
-    await deleteSessionsForUser(userId);
-
-    const cookie = await endSession(isSecureRequest(request));
+    const cookie = clearSessionCookie(isSecureRequest(request));
     const response = noStoreJson({ reset: true });
     response.cookies.set(cookie.name, cookie.value, cookie.options);
     logEvent("info", "auth.password_reset", {});

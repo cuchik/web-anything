@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     // user wants password recovery.
     const user = await createUser({ username, password: await hashPassword(password) });
 
-    const cookie = await startSession(user.id, isSecureRequest(request));
+    const cookie = await startSession(user.id, isSecureRequest(request), user.password.hash);
     const response = noStoreJson(
       { user: { username: user.username, hasEmail: false, emailVerified: false } },
       201,

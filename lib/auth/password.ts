@@ -1,6 +1,6 @@
 import { fromHex, timingSafeEqualHex, toHex } from "@/lib/crypto/hex";
+import { getServerConfig } from "@/lib/config/server";
 
-const DEFAULT_ITERATIONS = 210_000;
 const MIN_ITERATIONS = 100_000;
 const MAX_ITERATIONS = 1_000_000;
 const DERIVED_KEY_BITS = 256;
@@ -17,12 +17,7 @@ export type StoredPassword = {
  * Iterations are tunable because the hash runs inside the request CPU budget.
  */
 export function passwordHashIterations() {
-  const raw = process.env.PASSWORD_HASH_ITERATIONS?.trim();
-  if (!raw) return DEFAULT_ITERATIONS;
-
-  const configured = Number(raw);
-  if (!Number.isInteger(configured)) return DEFAULT_ITERATIONS;
-  return Math.min(MAX_ITERATIONS, Math.max(MIN_ITERATIONS, configured));
+  return getServerConfig().PASSWORD_HASH_ITERATIONS;
 }
 
 async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number) {
@@ -54,7 +49,8 @@ export async function hashPassword(password: string): Promise<StoredPassword> {
 
 export async function verifyPassword(password: string, stored: StoredPassword) {
   const salt = fromHex(stored.salt);
-  if (!salt || !Number.isInteger(stored.iterations) || stored.iterations < MIN_ITERATIONS) {
+  if (!salt || salt.length !== SALT_BYTES || !Number.isInteger(stored.iterations) ||
+      stored.iterations < MIN_ITERATIONS || stored.iterations > MAX_ITERATIONS) {
     return false;
   }
 

@@ -36,6 +36,20 @@
       "when": 1786455990591,
       "tag": "0004_organic_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790396684579,
+      "tag": "0005_oval_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790396906456,
+      "tag": "0006_deep_inhumans",
+      "breakpoints": true
     }
   ]
 }

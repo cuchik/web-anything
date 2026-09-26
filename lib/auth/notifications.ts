@@ -16,6 +16,7 @@ type Recipient = {
   id: string;
   username: string;
   email: string;
+  emailVersion: number;
 };
 
 async function issueAuthLink(user: Recipient, purpose: AuthTokenPurpose, origin: string) {
@@ -23,6 +24,8 @@ async function issueAuthLink(user: Recipient, purpose: AuthTokenPurpose, origin:
   await createAuthTokenRecord({
     id,
     userId: user.id,
+    email: user.email,
+    emailVersion: user.emailVersion,
     purpose,
     expiresAt: Date.now() + TOKEN_TTL_MS[purpose],
   });
@@ -42,7 +45,6 @@ export async function sendPasswordResetEmail(user: Recipient, origin: string) {
       "",
       "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.",
     ].join("\n"),
-    link,
   });
 }
 
@@ -59,6 +61,5 @@ export async function sendEmailVerification(user: Recipient, origin: string) {
       "",
       "Nếu bạn không tạo tài khoản Bếp Từ Video, hãy bỏ qua email này.",
     ].join("\n"),
-    link,
   });
 }

@@ -11,6 +11,7 @@ export const users = sqliteTable(
     passwordSalt: text("password_salt").notNull(),
     passwordIterations: integer("password_iterations").notNull(),
     emailVerifiedAt: integer("email_verified_at"),
+    emailVersion: integer("email_version").notNull().default(0),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
@@ -27,7 +28,7 @@ export const sessions = sqliteTable(
     expiresAt: integer("expires_at").notNull(),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => [index("sessions_user_idx").on(table.userId)],
+  (table) => [index("sessions_user_idx").on(table.userId), index("sessions_expiry_idx").on(table.expiresAt)],
 );
 
 export const authTokens = sqliteTable(
@@ -36,11 +37,13 @@ export const authTokens = sqliteTable(
     id: text("id").primaryKey(),
     userId: text("user_id").notNull(),
     purpose: text("purpose").notNull(),
+    // Legacy tokens remain unbound and cannot be redeemed.
+    emailVersion: integer("email_version"),
     expiresAt: integer("expires_at").notNull(),
     usedAt: integer("used_at"),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => [index("auth_tokens_user_purpose_idx").on(table.userId, table.purpose)],
+  (table) => [index("auth_tokens_user_purpose_idx").on(table.userId, table.purpose), index("auth_tokens_expiry_idx").on(table.expiresAt)],
 );
 
 export const recipes = sqliteTable(
@@ -62,11 +65,11 @@ export const apiRateLimits = sqliteTable("api_rate_limits", {
   key: text("key").primaryKey(),
   count: integer("count").notNull(),
   resetAt: integer("reset_at").notNull(),
-});
+}, (table) => [index("api_rate_limits_reset_idx").on(table.resetAt)]);
 
 export const analysisCache = sqliteTable("analysis_cache", {
   key: text("key").primaryKey(),
   responseJson: text("response_json").notNull(),
   expiresAt: integer("expires_at").notNull(),
   createdAt: integer("created_at").notNull(),
-});
+}, (table) => [index("analysis_cache_expiry_idx").on(table.expiresAt)]);

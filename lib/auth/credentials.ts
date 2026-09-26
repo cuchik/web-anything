@@ -64,7 +64,10 @@ export const signUpSchema = z.object({
 });
 
 /** Email is added after sign-in, not at registration. */
-export const setEmailSchema = z.object({ email: emailSchema });
+export const setEmailSchema = z.object({
+  email: emailSchema,
+  currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH),
+});
 
 /** Sign-in never applies format rules, so an invalid username cannot be told apart from a wrong one. */
 export const signInSchema = z.object({

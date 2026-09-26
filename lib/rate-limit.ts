@@ -1,4 +1,7 @@
 import { ApplicationError } from "@/lib/errors/application-error";
+import { getDatabase, getOptionalDatabase } from "@/db/client";
+import { getServerConfig } from "@/lib/config/server";
+import { hashAuthToken } from "@/lib/auth/token";
 
 type RateLimitBucket = {
   count: number;
@@ -12,12 +15,15 @@ type RateLimitOptions = {
 };
 
 const buckets = new Map<string, RateLimitBucket>();
-let rateLimitSchemaReady: Promise<void> | undefined;
 
 function consumeMemoryRateLimit(key: string, options: Required<RateLimitOptions>) {
+  for (const [entry, bucket] of buckets) {
+    if (bucket.resetAt <= options.now) buckets.delete(entry);
+  }
   const current = buckets.get(key);
 
   if (!current || current.resetAt <= options.now) {
+    if (buckets.size >= 10_000) throw new ApplicationError("RATE_LIMIT_UNAVAILABLE", 503, "Hãy thử lại sau.", true);
     buckets.set(key, { count: 1, resetAt: options.now + options.windowMs });
     return { allowed: true, remaining: options.limit - 1, retryAfterSeconds: 0 };
   }
@@ -34,32 +40,11 @@ function consumeMemoryRateLimit(key: string, options: Required<RateLimitOptions>
   return { allowed: true, remaining: options.limit - current.count, retryAfterSeconds: 0 };
 }
 
-async function getProductionDatabase() {
-  try {
-    const { env } = await import("cloudflare:workers");
-    return env.DB ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function consumeDatabaseRateLimit(
   database: D1Database,
   key: string,
   options: Required<RateLimitOptions>,
 ) {
-  rateLimitSchemaReady ??= database
-    .prepare(`
-      CREATE TABLE IF NOT EXISTS api_rate_limits (
-        key TEXT PRIMARY KEY NOT NULL,
-        count INTEGER NOT NULL,
-        reset_at INTEGER NOT NULL
-      )
-    `)
-    .run()
-    .then(() => undefined);
-  await rateLimitSchemaReady;
-
   const nextResetAt = options.now + options.windowMs;
   const row = await database
     .prepare(`
@@ -73,7 +58,7 @@ async function consumeDatabaseRateLimit(
     .bind(key, nextResetAt, options.now, options.now, nextResetAt)
     .first<{ count: number; reset_at: number }>();
 
-  if (!row) return consumeMemoryRateLimit(key, options);
+  if (!row) throw new ApplicationError("RATE_LIMIT_UNAVAILABLE", 503, "Hãy thử lại sau.", true);
   const allowed = row.count <= options.limit;
   return {
     allowed,
@@ -88,9 +73,10 @@ export async function consumeRateLimit(key: string, partialOptions: RateLimitOpt
     windowMs: partialOptions.windowMs ?? 10 * 60 * 1_000,
     now: partialOptions.now ?? Date.now(),
   };
-  const database = await getProductionDatabase();
-  if (database) return consumeDatabaseRateLimit(database, key, options);
-  return consumeMemoryRateLimit(key, options);
+  const database = getServerConfig().NODE_ENV === "production" ? await getDatabase() : await getOptionalDatabase();
+  const opaqueKey = await hashAuthToken(key);
+  if (database) return consumeDatabaseRateLimit(database, opaqueKey, options);
+  return consumeMemoryRateLimit(opaqueKey, options);
 }
 
 export type RateLimitBudget = {
@@ -118,7 +104,7 @@ export async function assertRateLimit(budgets: RateLimitBudget[]) {
 }
 
 export function getClientKey(headers: Headers) {
-  const forwarded = headers.get("cf-connecting-ip") ?? headers.get("x-forwarded-for")?.split(",")[0];
+  const forwarded = headers.get("cf-connecting-ip");
   return forwarded?.trim() || "anonymous";
 }
 

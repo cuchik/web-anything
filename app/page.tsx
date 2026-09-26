@@ -212,6 +212,10 @@ export default function Home() {
   }
 
   async function saveRecipe() {
+    if (recipe.promptVersion === "sample") {
+      showToast("Đây là công thức minh họa. Hãy phân tích link video của bạn trước khi lưu.");
+      return;
+    }
     if (!session?.authenticated) {
       goToSignIn();
       return;
@@ -235,13 +239,17 @@ export default function Home() {
   }
 
   async function removeSavedRecipe(id: string) {
-    const response = await fetch(`/api/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!response.ok) {
-      showToast("Không thể xóa công thức");
-      return;
+    try {
+      const response = await fetch(`/api/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!response.ok) {
+        showToast("Không thể xóa công thức");
+        return;
+      }
+      setSavedRecipes((current) => current.filter((item) => item.id !== id));
+      showToast("Đã xóa công thức");
+    } catch {
+      showToast("Không thể kết nối để xóa công thức. Hãy thử lại.");
     }
-    setSavedRecipes((current) => current.filter((item) => item.id !== id));
-    showToast("Đã xóa công thức");
   }
 
   const showResult = status === "done";

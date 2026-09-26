@@ -8,8 +8,11 @@ import {
 import { getCachedAnalysis, setCachedAnalysis } from "@/db/analysis-cache";
 import { ApplicationError, toApplicationError } from "@/lib/errors/application-error";
 import { fetchFacebookMetadata } from "@/lib/facebook/metadata";
-import { parseFacebookVideoUrl, SAMPLE_IMAGE_URL, SAMPLE_VIDEO_URL } from "@/lib/facebook/url";
-import { consumeRateLimit, getClientKey } from "@/lib/rate-limit";
+import { parseFacebookVideoUrl } from "@/lib/facebook/url";
+import { readJsonBody } from "@/lib/http/api-response";
+import { assertSameOrigin } from "@/lib/http/request-origin";
+import { getServerConfig } from "@/lib/config/server";
+import { assertRateLimit, consumeRateLimit, getClientKey } from "@/lib/rate-limit";
 import { logEvent } from "@/lib/observability/logger";
 import type { RecipeAnalysis } from "@/lib/recipes/schema";
 
@@ -31,41 +34,26 @@ function jsonResponse(body: unknown, status: number, requestId: string, extraHea
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
-  const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > 4_096) {
-    return jsonResponse(
-      { error: { code: "REQUEST_TOO_LARGE", message: "Dữ liệu gửi lên quá lớn.", retryable: false, requestId } },
-      413,
-      requestId,
-    );
-  }
-
-  const rateLimit = await consumeRateLimit(getClientKey(request.headers));
-  if (!rateLimit.allowed) {
-    return jsonResponse(
-      {
-        error: {
-          code: "RATE_LIMITED",
-          message: "Bạn đã thử quá nhiều lần. Hãy đợi một chút rồi thử lại.",
-          retryable: true,
-          requestId,
-        },
-      },
-      429,
-      requestId,
-      { "Retry-After": String(rateLimit.retryAfterSeconds) },
-    );
-  }
-
   try {
-    let rawBody: unknown;
-    try {
-      rawBody = await request.json();
-    } catch (error) {
-      throw new ApplicationError("INVALID_JSON", 400, "Dữ liệu gửi lên không đúng định dạng.", false, {
-        cause: error,
-      });
+    assertSameOrigin(request);
+    const rateLimit = await consumeRateLimit(getClientKey(request.headers));
+    if (!rateLimit.allowed) {
+      return jsonResponse(
+        {
+          error: {
+            code: "RATE_LIMITED",
+            message: "Bạn đã thử quá nhiều lần. Hãy đợi một chút rồi thử lại.",
+            retryable: true,
+            requestId,
+          },
+        },
+        429,
+        requestId,
+        { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      );
     }
+
+    const rawBody = await readJsonBody(request);
     const parsedBody = requestSchema.safeParse(rawBody);
     if (!parsedBody.success) {
       throw new ApplicationError("INVALID_REQUEST", 400, "Hãy nhập một link Facebook hợp lệ.");
@@ -73,7 +61,7 @@ export async function POST(request: NextRequest) {
     const body = parsedBody.data;
     const videoUrl = parseFacebookVideoUrl(body.url);
     const sourceUrl = videoUrl.toString();
-    const cacheKey = `${GEMINI_PROMPT_VERSION}:${sourceUrl}`;
+    const cacheKey = `${GEMINI_PROMPT_VERSION}:${getServerConfig().GEMINI_MODEL}:${sourceUrl}`;
     const cachedRecipe = await getCachedAnalysis(cacheKey);
     if (cachedRecipe) {
       logEvent("info", "analysis.completed", {
@@ -83,21 +71,21 @@ export async function POST(request: NextRequest) {
       });
       return jsonResponse({ recipe: cachedRecipe, requestId }, 200, requestId);
     }
-    const isSample = videoUrl.toString() === SAMPLE_VIDEO_URL;
-    const metadata = isSample
-      ? { imageUrl: SAMPLE_IMAGE_URL, videoUrl: undefined, title: "", description: "" }
-      : await fetchFacebookMetadata(videoUrl);
+    await assertRateLimit([{ key: "analysis-global", limit: 100, windowMs: 60 * 60 * 1_000 }]);
+    const metadata = await fetchFacebookMetadata(videoUrl);
 
     let analysisMode: "video" | "thumbnail" = metadata.videoUrl ? "video" : "thumbnail";
     let recipe: RecipeAnalysis | undefined;
-    if (metadata.videoUrl) {
+    for (const candidate of metadata.videoUrls) {
       try {
         recipe = await analyzeMediaWithGemini({
-          mediaUrl: metadata.videoUrl,
+          mediaUrl: candidate,
           mediaKind: "video",
           sourceTitle: metadata.title,
           sourceDescription: metadata.description,
         });
+        analysisMode = "video";
+        break;
       } catch (error) {
         if (!shouldFallbackToThumbnail(error)) throw error;
         analysisMode = "thumbnail";

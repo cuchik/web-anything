@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     await assertRateLimit([{ key: `forgot-email:${email}`, limit: 3, windowMs: HOUR_MS }]);
 
     const user = await findUserByEmail(email);
-    if (user?.email) {
+    if (user?.email && user.emailVerifiedAt !== null) {
       try {
         await sendPasswordResetEmail({ ...user, email: user.email }, resolveAppOrigin(request));
       } catch (error) {

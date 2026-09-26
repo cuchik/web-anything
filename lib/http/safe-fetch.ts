@@ -7,6 +7,7 @@ type SafeFetchOptions = {
   init?: RequestInit;
   maxRedirects?: number;
   fetchImplementation?: typeof fetch;
+  onFinalUrl?: (url: URL) => void;
 };
 
 export async function safeFetch(input: string | URL, options: SafeFetchOptions) {
@@ -28,7 +29,12 @@ export async function safeFetch(input: string | URL, options: SafeFetchOptions) 
       redirect: "manual",
     });
 
-    if (!redirectStatuses.has(response.status)) return response;
+    if (!redirectStatuses.has(response.status)) {
+      options.onFinalUrl?.(current);
+      return response;
+    }
+
+    void response.body?.cancel().catch(() => undefined);
 
     const location = response.headers.get("location");
     if (!location || redirectCount === maxRedirects) {

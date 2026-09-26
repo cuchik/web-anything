@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
     if (!(await verifyPassword(password, user.password))) throw invalidCredentials();
 
-    const cookie = await startSession(user.id, isSecureRequest(request));
+    const cookie = await startSession(user.id, isSecureRequest(request), user.password.hash);
     const response = noStoreJson({
       user: {
         username: user.username,
