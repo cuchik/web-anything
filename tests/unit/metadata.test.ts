@@ -15,7 +15,10 @@ describe("extractMetaContent", () => {
 
 describe("fetchFacebookMetadata", () => {
   it("rejects a canonical identity different from the requested video", async () => {
-    const fetchImplementation = async () => new Response('<meta property="og:url" content="https://www.facebook.com/reel/999"><meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">');
+    const fetchImplementation = async () => new Response(
+      '<meta property="og:url" content="https://www.facebook.com/reel/999"><meta property="og:image" content="https://scontent.fbcdn.net/dish.jpg">',
+      { headers: { "content-type": "text/html" } },
+    );
     await expect(fetchFacebookMetadata(new URL("https://www.facebook.com/reel/123"), fetchImplementation as typeof fetch))
       .rejects.toMatchObject({ code: "FACEBOOK_VIDEO_MISMATCH" });
   });

@@ -298,3 +298,29 @@ Exit criteria:
 - [Testing strategy](testing.md), [Release readiness](release-readiness.md), [Release runbook](release-runbook.md)
 - UI: `app/page.tsx`, `components/*`, các trang auth và `/account`.
 - API/domain: `app/api/*`, `lib/auth/credentials.ts`, `lib/auth/return-path.ts`, `lib/facebook/url.ts`, `lib/ai/gemini.ts`, `db/recipes.ts`, `lib/http/api-response.ts`.
+
+## 18. Kết quả lần chạy hỗ trợ đầu tiên
+
+Ngày 27/09/2026 — local candidate `ced873d` cộng sửa fixture test ở `tests/unit/metadata.test.ts`; không chạy trên PROD và không gửi media/email tới dịch vụ ngoài.
+
+| Hạng mục | Trạng thái | Bằng chứng / giới hạn |
+| --- | --- | --- |
+| `pnpm lint` | Pass | Chạy trong `pnpm verify` |
+| `pnpm typecheck` | Pass | Chạy trong `pnpm verify` |
+| `pnpm build` | Pass | Vinext build hoàn tất; còn notice upstream về `debugName` và static route classification |
+| Unit tests | Pass, 117/117 | 18 files. Lượt đầu phát hiện fixture metadata mock thiếu `content-type: text/html`; đã chỉnh fixture trong `tests/unit/metadata.test.ts` để test canonical mismatch đúng response contract rồi chạy lại |
+| Render tests | Pass, 6/6 | Home, signin/signup, password rules, social metadata và security headers |
+| `pnpm verify` | Pass | Lint + typecheck + build + toàn bộ unit/render tests hoàn tất sau chỉnh fixture |
+| H01 home local | Pass | Trang home render trên `http://localhost:3001`; `/api/session` trả 200. Không có D1 local nên không xác nhận auth/data |
+| H03 demo local | Pass | Kích hoạt bằng bàn phím; tiêu đề và recipe sample hiện; server log chỉ có home/session trong lần demo, không có POST analyze |
+| R04 copy sample | Pass | Bấm nút copy bằng bàn phím; UI hiện toast “Đã sao chép công thức” |
+| V03 link ngoài Facebook | Pass | Gửi `https://example.com/not-a-video` trên origin đã khớp; UI báo chỉ nhận link video/Reel Facebook; local log POST `/api/analyze` 400, không gọi Gemini |
+| A02/A04 signup UI | Partial | Trang signup render; mật khẩu yếu giữ nút disabled, mật khẩu `LocalQa!Strong9` làm nút enabled; không submit hoặc tạo account |
+| A06 signin UI | Partial | Form signin và link forgot-password/signup render; không có D1 nên không xác thực account |
+| P01 forgot-password UI | Partial | Trang và field email render; không gửi request/email |
+| Lỗi origin khi port 3000 | Không tính lỗi sản phẩm | Lần đầu dev server dùng `localhost:3000` trong khi local default `APP_URL` là `localhost:3001`, gây 403 same-origin; chuyển dev server sang port 3001 thì invalid link cho 400 đúng kỳ vọng |
+| Auth, session, email, saved recipes, quota, real D1/Worker | Blocked | `.openai/hosting.json` không có D1 binding; local email variables chưa có; Site staging chưa truy cập được |
+| Live video/thumbnail/Gemini | Not run | Cần video public cụ thể và phê duyệt gửi media/metadata sang Google Gemini; không dùng sample URL giả |
+| Cross-browser/mobile/accessibility | Not run | Browser smoke ban đầu chỉ xác nhận cây accessibility ở in-app viewport hiện tại |
+
+Sau khi test local, đã dừng dev server. Test-fixture correction còn là thay đổi chưa commit; checkpoint `5dc9902` chỉ chứa plan ban đầu. Không có account hoặc dữ liệu user nào được tạo.
