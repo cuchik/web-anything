@@ -6,15 +6,15 @@ Use an isolated local D1 and a synthetic QA account; no production schema change
 
 | ID | Scenario / expected result | Local | Production |
 | --- | --- | --- | --- |
-| QC01 | Demo/result: title, complete ingredients/steps; no subtitle; notes collapsed; mode and warnings retained | Pass | Pending |
-| QC02 | Saved recipe: open by action/title, correct content and mode, Saved disabled, return to invoking card, reload preserves stored data | Pass | Pending |
-| QC03 | PNG preview + download: 1200px wide, readable Vietnamese, source image, all ingredients/steps/warnings, no action controls | Pass | Pending |
-| QC04 | Expired image: visible failure, retry, explicit text-only export, no substitute image | Pass | Pending |
-| QC05 | Maximum-length data: 120-char title, 10 ingredients, 8 steps, 6 warnings; last item included, no clipping | Pass | Pending |
-| QC06 | Desktop/mobile: no horizontal overflow, usable controls, modal scroll, Escape/close restores focus | Pass | Pending |
-| QC07 | Copy correct selected recipe including mode/disclaimer; demo cannot save | Pass | Pending |
-| QC08 | API: invalid image URL and cross-origin rejected, anonymous saved data denied, second account isolated | Pass | Pending |
-| QC09 | In-flight result cannot overwrite selected saved recipe; save state tied to its original result | Pass | Pending |
+| QC01 | Demo/result: title, complete ingredients/steps; no subtitle; notes collapsed; mode and warnings retained | Pass | Pass |
+| QC02 | Saved recipe: open by action/title, correct content and mode, Saved disabled, return to invoking card, reload preserves stored data | Pass | Pass |
+| QC03 | PNG preview + download: 1200px wide, readable Vietnamese, source image, all ingredients/steps/warnings, no action controls | Pass | Partial: PNG preview generated; native Save blocked by locked Mac |
+| QC04 | Expired image: visible failure, retry, explicit text-only export, no substitute image | Pass | Pass |
+| QC05 | Maximum-length data: 120-char title, 10 ingredients, 8 steps, 6 warnings; last item included, no clipping | Pass | Pass |
+| QC06 | Desktop/mobile: no horizontal overflow, usable controls, modal scroll, Escape/close restores focus | Pass | Pass |
+| QC07 | Copy correct selected recipe including mode/disclaimer; demo cannot save | Pass | Pass |
+| QC08 | API: invalid image URL and cross-origin rejected, anonymous saved data denied, second account isolated | Pass | Pass |
+| QC09 | In-flight result cannot overwrite selected saved recipe; save state tied to its original result | Pass (delayed success fixture) | Partial: real rejection path passed; delayed success replay local only |
 
 Automated regression additionally covers streamed size limits, redirects, active image content,
 rate limit, Unicode wrapping, filename normalization, source mode and disclaimer preservation.
@@ -46,4 +46,44 @@ Release baseline: Cloudflare Pages production `main`, deployment
 Automatic Git deployments are enabled. Candidate also preserves the existing
 local commits `414f65c` (analysis diagnostics) and `b75c7b5` (Cloudflare PBKDF2 cap)
 that were ahead of main when this task began.
-Production verification pending.
+Production deployment succeeded at 13:47 Asia/Ho_Chi_Minh, duration 51 seconds.
+Commit: `1b07d84cc0a0fdb236fe4ae3bacedc7e1bb7aa1b` on `main` / `origin/main`.
+Deployment: `276ade5c-4077-4d8c-8e0d-0c498261492c`.
+Canonical URL: https://cookfromvideo.pages.dev
+Cloudflare build: Node 22.16.0, pnpm 10.30.3, `pnpm build:pages`, status success.
+`pnpm audit` (all dependencies): no known vulnerabilities.
+
+Production manual verification used both the user's existing saved recipe (read-only)
+and an isolated synthetic QC account. Chrome and the Codex in-app browser rendered
+working PNG previews; real Facebook source image, Vietnamese glyphs, source mode,
+all steps and warnings were present. Long fixture produced 1200 × 5315 with step 8
+and warning 6 visible. Mobile 390 × 844 had no horizontal overflow. Copy, disabled
+Saved state, return focus, Escape, reload persistence and demo save rejection passed.
+
+API checks on the canonical production origin: unsafe image 400; cross-origin 403;
+anonymous saved read 401; separate account empty; cross-owner delete 404. An initial
+Python default-user-agent request was rejected by Cloudflare (1010); subsequent
+standard user-agent API requests reached the application and passed these checks.
+No firewall/security setting was changed.
+
+QC03 limitation: clicking the production download reached the OS Save dialog, but
+the Mac locked before it could be completed. PNG generation/preview passed; final
+production file-on-disk confirmation is pending manual unlock. Local download was
+fully completed and inspected (1200 × 1153 PNG). Browser download-event helpers also
+could not complete the native download while locked. User was notified to unlock.
+
+QC09 limitation: direct production rejected a non-Facebook URL without Gemini;
+opening a saved recipe preserved its contents after that rejection. A successful
+analysis response delayed four seconds was tested only through the isolated local
+fixture proxy. No successful fresh Gemini request was made on either environment.
+
+Production QA cleanup: all three fixture recipe IDs created by this run were deleted
+through the authenticated API (204 each); follow-up list returned zero recipes.
+Two synthetic accounts remain because the product has no account deletion API.
+The existing user's recipe was not edited or deleted. No production schema,
+secret, access-policy or binding changes were made.
+
+Evidence (local, ignored outputs): `outputs/recipe-qc/production-preview.png`,
+`production-mobile.png`, `local-mobile.png`, and `rau-cu-ham-kieu-nha.png`.
+Post-deploy report edits remain uncommitted so documentation does not trigger a
+second deployment. Implementation and pre-deploy QC are committed on main.
