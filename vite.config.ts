@@ -1,9 +1,8 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json" with { type: "json" };
+import pagesConfig from "./wrangler.json" with { type: "json" };
 import { sites } from "./build/sites-vite-plugin.ts";
-
-const D1_DATABASE_ID = "52ed060b-ee57-4e0c-95e7-7132ba31a10f";
 
 const { d1, r2 } = hostingConfig;
 
@@ -11,13 +10,16 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
-  main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  name: pagesConfig.name,
+  // Resolved relative to build/wrangler.json by the Cloudflare plugin.
+  main: "../worker/index.ts",
+  compatibility_date: pagesConfig.compatibility_date,
+  compatibility_flags: pagesConfig.compatibility_flags,
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_id: D1_DATABASE_ID,
+          database_id: pagesConfig.env.production.d1_databases[0].database_id,
         },
       ]
     : [],
@@ -49,6 +51,8 @@ export default defineConfig(async () => {
       vinext(),
       sites(),
       cloudflare({
+        // Compile a Worker module without loading the root Pages-only config.
+        configPath: "./build/wrangler.json",
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         config: localBindingConfig,
       }),

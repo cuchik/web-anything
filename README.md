@@ -7,7 +7,7 @@ Bếp Từ Video takes a link to a public Facebook Reel or video, uses Gemini to
 ## Stack
 
 - Next.js 16 + React 19 running through Vinext/Vite
-- Cloudflare Workers and OpenAI Sites
+- Cloudflare Pages Functions (Advanced Mode), with optional Workers/OpenAI Sites builds
 - Gemini Vision
 - Cloudflare D1 + Drizzle for accounts, sessions, saved recipes, distributed rate limiting and a short-lived analysis cache
 - First-party username and password sign-in (PBKDF2 + session cookie), with no dependency on the hosting platform; email is optional and used only for password reset
@@ -46,6 +46,8 @@ pnpm lint         # ESLint, zero warnings
 pnpm typecheck    # strict TypeScript
 pnpm test         # unit + server-render tests
 pnpm build        # production Worker build
+pnpm build:pages  # production Pages package in dist/pages
+pnpm deploy:pages # build and upload to Cloudflare Pages (current Git branch)
 pnpm verify       # all required quality gates
 pnpm audit        # dependency vulnerabilities (manual; CI does not run it)
 pnpm db:generate  # generate D1 migrations after schema changes

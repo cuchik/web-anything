@@ -1,6 +1,65 @@
 # Deployment
 
-The project is deployed through OpenAI Sites using `.openai/hosting.json`. Logical D1 binding `DB` is declared there; Sites owns the real resource wiring. Authentication is first-party and does not depend on the Sites dispatch layer, so the same build runs unchanged on any Workers-compatible host.
+## Cloudflare Pages
+
+The Pages build packages the existing Vinext server and SSR chunks as a Pages
+Advanced Mode `_worker.js` directory, alongside the client assets. SSR, API routes,
+authentication and D1 continue to run server-side.
+
+In the Pages project's Git build settings use:
+
+| Setting | Value |
+| --- | --- |
+| Project name | `cookfromvideo` |
+| Framework preset | `None` |
+| Build command | `pnpm build:pages` |
+| Build output directory | `dist/pages` |
+| Root directory | Repository root (leave blank) |
+| Production branch | The branch containing the reviewed release, normally `main` |
+
+Use Node.js 22.13.0 or newer and the pinned pnpm 10.30.3. Merge/push the Pages
+changes to the configured production branch before triggering a new deployment.
+Retrying an older commit will not use these changes. Do not use the Next.js preset,
+`dist/client`, or a Workers `wrangler deploy` command for this Pages project.
+
+The root `wrangler.json` is the Pages configuration source of truth. It sets
+`nodejs_compat`, the production `DB` binding to
+`52ed060b-ee57-4e0c-95e7-7132ba31a10f`, and production
+`APP_URL=https://cookfromvideo.pages.dev`. Set the secrets listed below in the
+**Pages project's Production settings**; Worker secrets do not transfer to Pages.
+Preserve the existing `USER_ID_PEPPER` when reusing the existing database.
+
+Preview intentionally has no D1 binding or production APP_URL. Before using
+authentication or analysis in a preview, configure a separate D1 and matching
+APP_URL in `env.preview`, and separate preview secrets in Cloudflare. Do not bind
+preview builds to the production database.
+
+For a CLI deployment after review, `pnpm deploy:pages` builds and uploads to Pages.
+Wrangler uses the current Git branch to select production or preview. To explicitly
+target a project whose production branch is `main`, use:
+
+```bash
+pnpm build:pages
+pnpm exec wrangler pages deploy dist/pages --project-name=cookfromvideo --branch=main
+```
+
+Building does not apply database migrations. Inspect and apply only pending
+migrations according to the release runbook before serving traffic. The Pages
+configuration points to the checked-in `drizzle` directory; it does not create,
+reset, or migrate the database automatically.
+
+`pnpm build` still generates the intermediate Worker output. The Vite plugin uses
+`build/wrangler.json` plus its inline configuration rather than loading the root
+Pages configuration. `pnpm build:pages` then removes Vite's generated Workers
+deployment redirect so Pages reads the root config. Only upload `dist/pages`:
+server modules are under `_worker.js`, and Sites metadata/migrations are not public.
+
+## Other hosting
+
+The optional OpenAI Sites configuration remains in `.openai/hosting.json`, with
+logical D1 binding `DB`. Pages deployment does not use the Sites control plane.
+
+## Runtime configuration
 
 Required hosted secrets:
 

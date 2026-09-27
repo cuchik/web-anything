@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cookfromvideo",
+  "pages_build_output_dir": "./dist/pages",
+  "compatibility_date": "2026-07-31",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [],
+  "vars": {},
+  "env": {
+    "production": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_id": "52ed060b-ee57-4e0c-95e7-7132ba31a10f",
+          "migrations_dir": "drizzle"
+        }
+      ],
+      "vars": {
+        "APP_URL": "https://cookfromvideo.pages.dev"
+      }
+    }
+  }
+}
