@@ -54,6 +54,34 @@ Pages configuration. `pnpm build:pages` then removes Vite's generated Workers
 deployment redirect so Pages reads the root config. Only upload `dist/pages`:
 server modules are under `_worker.js`, and Sites metadata/migrations are not public.
 
+## Diagnosing an analysis 500 after deployment
+
+Find the `analysis.failed` log with the response's `requestId`. Its `stage`
+identifies origin validation, rate limiting, cache reads/writes, Facebook metadata,
+or Gemini analysis. Raw errors and submitted URLs are deliberately not logged.
+`DATABASE_SCHEMA_MISSING` means a D1 query found a missing table/column;
+`DATABASE_ERROR` indicates another D1 query failure. Neither is fixed by rebuilding.
+
+After authenticating Wrangler, inspect production schema and migration history
+without changing data:
+
+```bash
+pnpm exec wrangler login
+pnpm exec wrangler d1 execute DB --env production --remote --command "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+pnpm exec wrangler d1 migrations list DB --env production --remote
+```
+
+Analysis requires `api_rate_limits` and `analysis_cache`; authentication requires
+the remaining checked-in migrations. If migrations are missing, follow the backup
+and migration procedure in `release-runbook.md` before applying pending SQL.
+Do not blindly apply every migration to an existing untracked schema, and do not
+create tables from an API request. Missing database bindings or Gemini secrets
+have separate application error codes.
+
+Use the canonical production URL `https://cookfromvideo.pages.dev` when
+`APP_URL` has that value. A deployment-specific hostname is a different origin
+and is intentionally rejected by the same-origin checks.
+
 ## Other hosting
 
 The optional OpenAI Sites configuration remains in `.openai/hosting.json`, with

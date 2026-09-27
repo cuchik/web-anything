@@ -34,8 +34,10 @@ function jsonResponse(body: unknown, status: number, requestId: string, extraHea
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
+  let stage = "origin";
   try {
     assertSameOrigin(request);
+    stage = "rate_limit";
     const rateLimit = await consumeRateLimit(getClientKey(request.headers));
     if (!rateLimit.allowed) {
       return jsonResponse(
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    stage = "request_validation";
     const rawBody = await readJsonBody(request);
     const parsedBody = requestSchema.safeParse(rawBody);
     if (!parsedBody.success) {
@@ -62,6 +65,7 @@ export async function POST(request: NextRequest) {
     const videoUrl = parseFacebookVideoUrl(body.url);
     const sourceUrl = videoUrl.toString();
     const cacheKey = `${GEMINI_PROMPT_VERSION}:${getServerConfig().GEMINI_MODEL}:${sourceUrl}`;
+    stage = "cache_read";
     const cachedRecipe = await getCachedAnalysis(cacheKey);
     if (cachedRecipe) {
       logEvent("info", "analysis.completed", {
@@ -71,9 +75,12 @@ export async function POST(request: NextRequest) {
       });
       return jsonResponse({ recipe: cachedRecipe, requestId }, 200, requestId);
     }
+    stage = "global_rate_limit";
     await assertRateLimit([{ key: "analysis-global", limit: 100, windowMs: 60 * 60 * 1_000 }]);
+    stage = "facebook_metadata";
     const metadata = await fetchFacebookMetadata(videoUrl);
 
+    stage = "gemini_analysis";
     let analysisMode: "video" | "thumbnail" = metadata.videoUrl ? "video" : "thumbnail";
     let recipe: RecipeAnalysis | undefined;
     for (const candidate of metadata.videoUrls) {
@@ -116,6 +123,7 @@ export async function POST(request: NextRequest) {
       sourceUrl,
       promptVersion: GEMINI_PROMPT_VERSION,
     };
+    stage = "cache_write";
     await setCachedAnalysis(cacheKey, responseRecipe);
     logEvent("info", "analysis.completed", {
       requestId,
@@ -130,6 +138,7 @@ export async function POST(request: NextRequest) {
     if (applicationError.status >= 500) {
       logEvent("error", "analysis.failed", {
         requestId,
+        stage,
         code: applicationError.code,
         retryable: applicationError.retryable,
         durationMs: Date.now() - startedAt,

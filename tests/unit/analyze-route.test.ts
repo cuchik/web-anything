@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/analyze/route";
 import { ApplicationError } from "@/lib/errors/application-error";
+import { logEvent } from "@/lib/observability/logger";
 
 const mocks = vi.hoisted(() => ({ metadata: vi.fn(), analyze: vi.fn(), limit: vi.fn(), cache: vi.fn() }));
 vi.mock("@/lib/facebook/metadata", () => ({ fetchFacebookMetadata: mocks.metadata }));
@@ -26,6 +27,19 @@ const request = (url = "https://www.facebook.com/reel/123", origin = "https://ap
 });
 
 describe("analysis route regression", () => {
+  it("identifies missing D1 migrations without leaking the database error", async () => {
+    mocks.limit.mockRejectedValue(new Error("D1_ERROR: no such table: api_rate_limits: SQLITE_ERROR"));
+    const response = await POST(request());
+    const body = await response.json();
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({ error: { code: "DATABASE_SCHEMA_MISSING", retryable: false } });
+    expect(JSON.stringify(body)).not.toContain("api_rate_limits");
+    expect(logEvent).toHaveBeenCalledWith("error", "analysis.failed", expect.objectContaining({
+      stage: "rate_limit", code: "DATABASE_SCHEMA_MISSING", requestId: response.headers.get("X-Request-Id"),
+    }));
+    expect(mocks.metadata).not.toHaveBeenCalled();
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
   it("fetches Facebook even for the old sample URL", async () => {
     const response = await POST(request("https://www.facebook.com/reel/1234567890"));
     expect(response.status).toBe(200);
