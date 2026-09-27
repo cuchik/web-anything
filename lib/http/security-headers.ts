@@ -2,7 +2,7 @@ export function securityHeaders(secure: boolean) {
   const csp = [
     "default-src 'self'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'", "object-src 'none'",
     "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'", "font-src 'self' data:",
-    "img-src 'self' data: https://*.fbcdn.net https://*.fbsbx.com https://*.facebook.com https://images.unsplash.com",
+    "img-src 'self' data: blob: https://*.fbcdn.net https://*.fbsbx.com https://*.facebook.com https://images.unsplash.com",
     "connect-src 'self'", ...(secure ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
   return {

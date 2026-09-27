@@ -12,8 +12,9 @@ import {
   Save,
   Sparkles,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-import { RecipeCard, type DisplayRecipe } from "@/components/recipe-card";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { RecipeCard } from "@/components/recipe-card";
+import { recipeText, type DisplayRecipe } from "@/lib/recipes/presentation";
 import { postAuth } from "@/lib/auth/client";
 import { signInPath } from "@/lib/auth/return-path";
 import type { SavedRecipe } from "@/lib/recipes/saved-recipe";
@@ -68,12 +69,38 @@ export default function Home() {
     "idle",
   );
   const [stage, setStage] = useState(0);
-  const [recipe, setRecipe] = useState<DisplayRecipe>(sampleRecipe);
+  const [analyzedRecipe, setRecipe] = useState<DisplayRecipe>(sampleRecipe);
   const [message, setMessage] = useState("");
   const [toast, setToast] = useState("");
   const [session, setSession] = useState<SessionState | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
+  const [savedAnalysis, setSavedAnalysis] = useState<{ id: string; recipe: DisplayRecipe } | null>(null);
+  const selectedRecipeRef = useRef<SavedRecipe | null>(null);
+  const resultHeading = useRef<HTMLHeadingElement>(null);
+  const recipe = selectedRecipe ?? analyzedRecipe;
+  const isAnalysisSaved = savedAnalysis?.recipe === analyzedRecipe;
+
+  function viewSavedRecipe(item: SavedRecipe) {
+    selectedRecipeRef.current = item;
+    setSelectedRecipe(item);
+    requestAnimationFrame(() => {
+      resultHeading.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultHeading.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function returnToSaved() {
+    const id = selectedRecipe?.id;
+    selectedRecipeRef.current = null;
+    setSelectedRecipe(null);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(`saved-open-${id}`);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus({ preventScroll: true });
+    });
+  }
 
   useEffect(() => {
     if (status !== "loading") return;
@@ -117,12 +144,15 @@ export default function Home() {
   }, []);
 
   async function analyze(videoUrl: string) {
+    if (status === "loading") return;
     if (!videoUrl.trim()) {
       setMessage("Hãy dán một đường link Facebook trước nhé.");
       setStatus("error");
       return;
     }
 
+    selectedRecipeRef.current = null;
+    setSelectedRecipe(null);
     setStatus("loading");
     setStage(0);
     setMessage("");
@@ -141,7 +171,8 @@ export default function Home() {
         throw new Error(data.error?.message || "Không thể phân tích video này");
       }
       setRecipe(data.recipe);
-      setTimeout(() => setStatus("done"), 350);
+      setSavedAnalysis(null);
+      setStatus("done");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Có lỗi xảy ra, hãy thử lại.");
       setStatus("error");
@@ -154,6 +185,9 @@ export default function Home() {
   }
 
   function trySample() {
+    selectedRecipeRef.current = null;
+    setSelectedRecipe(null);
+    setSavedAnalysis(null);
     setRecipe(sampleRecipe);
     setStatus("done");
     setMessage("");
@@ -168,11 +202,7 @@ export default function Home() {
   }
 
   async function copyRecipe() {
-    const text = `${recipe.title}\n\nNguyên liệu:\n${recipe.ingredients
-      .map((item) => `• ${item}`)
-      .join("\n")}\n\nCách làm:\n${recipe.steps
-      .map((item, index) => `${index + 1}. ${item}`)
-      .join("\n")}`;
+    const text = recipeText(recipe);
     try {
       await navigator.clipboard.writeText(text);
       showToast("Đã sao chép công thức");
@@ -212,6 +242,7 @@ export default function Home() {
   }
 
   async function saveRecipe() {
+    if (isSaving || selectedRecipe || isAnalysisSaved) return;
     if (recipe.promptVersion === "sample") {
       showToast("Đây là công thức minh họa. Hãy phân tích link video của bạn trước khi lưu.");
       return;
@@ -230,6 +261,7 @@ export default function Home() {
       const data = (await response.json()) as { recipe?: SavedRecipe; error?: { message?: string } };
       if (!response.ok || !data.recipe) throw new Error(data.error?.message || "Không thể lưu công thức");
       setSavedRecipes((current) => [data.recipe!, ...current.filter((item) => item.id !== data.recipe!.id)]);
+      setSavedAnalysis({ id: data.recipe.id, recipe });
       showToast("Đã lưu vào sổ công thức");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Không thể lưu công thức");
@@ -246,13 +278,18 @@ export default function Home() {
         return;
       }
       setSavedRecipes((current) => current.filter((item) => item.id !== id));
+      if (selectedRecipeRef.current?.id === id) {
+        selectedRecipeRef.current = null;
+        setSelectedRecipe(null);
+      }
+      setSavedAnalysis((current) => current?.id === id ? null : current);
       showToast("Đã xóa công thức");
     } catch {
       showToast("Không thể kết nối để xóa công thức. Hãy thử lại.");
     }
   }
 
-  const showResult = status === "done";
+  const showResult = status === "done" || selectedRecipe !== null;
 
   return (
     <main>
@@ -355,9 +392,10 @@ export default function Home() {
       <section className={`result-section ${showResult ? "is-visible" : ""}`} aria-live="polite">
         <div className="section-heading">
           <span className="section-kicker"><Sparkles size={14} /> Bếp AI đã tìm thấy</span>
-          <h2>{showResult ? "Công thức từ video của bạn" : "Một video. Một công thức hoàn chỉnh."}</h2>
+          <h2 ref={resultHeading} tabIndex={-1}>{selectedRecipe ? "Công thức đã lưu" : recipe.promptVersion === "sample" ? "Một video. Một công thức hoàn chỉnh." : "Công thức từ video của bạn"}</h2>
+          {selectedRecipe && <button className="back-to-saved" onClick={returnToSaved}>← Quay lại công thức đã lưu</button>}
           <p>
-            {showResult
+            {showResult && recipe.promptVersion !== "sample"
               ? recipe.analysisMode === "video"
                 ? "Kết quả được tổng hợp từ nhiều khung hình và vẫn có thể cần bạn điều chỉnh."
                 : "Facebook không cung cấp video trực tiếp, nên kết quả này được ước tính từ ảnh đại diện."
@@ -366,10 +404,11 @@ export default function Home() {
         </div>
 
         <RecipeCard
+          key={selectedRecipe?.id ?? `${analyzedRecipe.sourceUrl}-${analyzedRecipe.title}-${analyzedRecipe.image}`}
           recipe={recipe}
           onCopy={() => void copyRecipe()}
-          saveLabel={isSaving ? "Đang lưu…" : session?.authenticated ? "Lưu công thức" : "Đăng nhập để lưu"}
-          saveDisabled={isSaving}
+          saveLabel={selectedRecipe || isAnalysisSaved ? "Đã lưu" : isSaving ? "Đang lưu…" : session?.authenticated ? "Lưu công thức" : "Đăng nhập để lưu"}
+          saveDisabled={isSaving || !!selectedRecipe || isAnalysisSaved}
           onSave={() => void saveRecipe()}
         />
       </section>
@@ -390,9 +429,10 @@ export default function Home() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.image} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                   <div>
-                    <h3>{item.title}</h3>
+                    <h3><button className="saved-title-button" onClick={() => viewSavedRecipe(item)}>{item.title}</button></h3>
                     <p>{new Intl.DateTimeFormat("vi-VN").format(item.createdAt)}</p>
                     <div>
+                      <button id={`saved-open-${item.id}`} className="saved-detail-button" type="button" onClick={() => viewSavedRecipe(item)}>Xem chi tiết</button>
                       <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">Video gốc</a>
                       <button type="button" onClick={() => void removeSavedRecipe(item.id)}>Xóa</button>
                     </div>

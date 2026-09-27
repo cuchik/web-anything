@@ -80,6 +80,23 @@ Signed-in user
 
 See [architecture](docs/architecture.md), [authentication](docs/auth.md), [API](docs/api/analyze.md), [AI contract](docs/ai/prompt-and-output-schema.md), [security](docs/security-threat-model.md) and [deployment](docs/deployment.md).
 
+## Saved recipe details and images
+
+Select **Xem chi tiết** (or a saved recipe title) to reopen its stored analysis without
+calling Gemini again. **Quay lại công thức đã lưu** returns to that card. The main
+result contains the title, ingredients and steps; **Thông tin phân tích** retains
+observations, assumptions, confidence and estimates. Source mode and food-safety
+warnings remain visible.
+
+**Tải ảnh** opens a PNG preview with a separate compact layout. The downloaded
+image is exactly that preview, 1200 pixels wide with height based on the content.
+It includes all ingredients, steps, warnings and the analysis-mode disclaimer,
+without action buttons. If the original image has expired, retry or explicitly
+choose a text-only image. No replacement food image is inserted. Image fetching
+is same-origin, host-validated, redirect-validated, rate-limited, limited to 5 MiB,
+and limited to JPEG/PNG/WebP. The exact existing demo image is the only non-Facebook
+exception and is never substituted into a real recipe.
+
 ## Product limitations
 
 - Facebook may block metadata for private, login-gated or region-limited videos.
