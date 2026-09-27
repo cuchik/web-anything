@@ -34,7 +34,7 @@ Five rules, all required:
 
 `PASSWORD_RULES` in `lib/auth/credentials.ts` is the single source of truth: `passwordSchema` and the live checklist in the signup and reset forms are both derived from it, so the UI can never advertise criteria the server does not enforce. A failed check produces one message naming every unmet rule. The same rules apply to a password chosen during reset.
 
-Hashing is PBKDF2-HMAC-SHA256, 210,000 iterations by default, 16-byte random salt, 256-bit derived key, compared without early exit. Iterations are stored per user; configuration and stored values must be within 100,000–1,000,000.
+Hashing is PBKDF2-HMAC-SHA256, 100,000 iterations by default, 16-byte random salt, 256-bit derived key, compared without early exit. New hashes require exactly 100,000 iterations, the native Cloudflare cap. Verification preserves stored counts (validated within 100,000–1,000,000); an older hash above the runtime cap produces PASSWORD_HASH_UNSUPPORTED rather than being silently changed.
 
 Passwords are NFKC-normalised before hashing so the same typed password matches across input methods. This matters for Vietnamese input.
 

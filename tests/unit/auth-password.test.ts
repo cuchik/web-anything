@@ -17,10 +17,15 @@ describe("passwordHashIterations", () => {
 
   it("defaults when unset but rejects unparsable configuration", () => {
     vi.stubEnv("PASSWORD_HASH_ITERATIONS", "");
-    expect(passwordHashIterations()).toBe(210_000);
+    expect(passwordHashIterations()).toBe(100_000);
 
     vi.stubEnv("PASSWORD_HASH_ITERATIONS", "not-a-number");
     expect(() => passwordHashIterations()).toThrow();
+  });
+
+  it("rejects iteration counts above the Cloudflare native limit before hashing", () => {
+    vi.stubEnv("PASSWORD_HASH_ITERATIONS", "210000");
+    expect(() => passwordHashIterations()).toThrow("INVALID_SERVER_CONFIG");
   });
 });
 

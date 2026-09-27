@@ -9,7 +9,8 @@ const schema = z.object({
   USER_ID_PEPPER: z.string().trim().optional(),
   RESEND_API_KEY: z.string().trim().optional(),
   EMAIL_FROM: z.string().trim().optional(),
-  PASSWORD_HASH_ITERATIONS: z.coerce.number().int().min(100_000).max(1_000_000).default(210_000),
+  // Cloudflare's native PBKDF2 rejects more than 100,000 iterations.
+  PASSWORD_HASH_ITERATIONS: z.coerce.number().int().min(100_000).max(100_000).default(100_000),
 });
 
 /** Read lazily: Workers bindings become available at request time, not build time. */

@@ -8,6 +8,6 @@ Set `APP_URL` to the exact origin you browse (for example `http://localhost:3001
 
 Application code uses `@/` aliases. Build-loader configuration is the exception: Vinext reads `next.config.ts` before registering aliases, so its shared header-policy import uses the same relative-import convention as `vite.config.ts`.
 
-`PASSWORD_HASH_ITERATIONS` can be lowered locally if PBKDF2 makes sign-in feel slow. Do not lower it in a deployed environment.
+`PASSWORD_HASH_ITERATIONS` defaults to 100,000, the native Cloudflare PBKDF2 cap. Other configured counts are rejected. Existing stored hash parameters are never rewritten or clamped.
 
 Do not use live customer links as tests. Prefer mocked fetch responses and synthetic metadata.

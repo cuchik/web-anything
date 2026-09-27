@@ -99,7 +99,7 @@ Required hosted secrets:
 
 Optional:
 
-- `PASSWORD_HASH_ITERATIONS` — defaults to 210,000; configured values outside 100,000–1,000,000 fail validation. Measure the hash cost in the actual Worker plan before release; do not assume it fits a free-tier CPU budget.
+- `PASSWORD_HASH_ITERATIONS` — defaults to 100,000; only 100,000 is accepted for new hashes because of the native Cloudflare PBKDF2 cap. Measure the hash cost in the actual Worker plan before release; do not assume it fits a free-tier CPU budget.
 
 Before release run `pnpm verify` and `pnpm audit` — this is the only point where dependencies are audited, since CI no longer does it — then inspect migrations, walk signup, sign-in, sign-out, adding an email at `/account`, forgot-password, reset-password and verify-email against the deployed origin, validate save/list/delete behaviour and test one public Facebook URL.
 

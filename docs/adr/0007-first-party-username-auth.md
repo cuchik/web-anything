@@ -13,3 +13,8 @@ Sessions are opaque 32-byte tokens in an `HttpOnly`, `SameSite=Lax` cookie. Only
 Cookie authentication introduces CSRF exposure that header authentication did not have, so every state-changing route asserts a same-origin caller.
 
 The recipe owner key changes from `HMAC(pepper, email)` to `HMAC(pepper, userId)` because the user id is stable while an email address is not. Rows saved under the previous ChatGPT-era key are not readable by the new accounts.
+
+
+## Cloudflare runtime correction (2026-09-27)
+
+The original 210,000-iteration default above exceeds the native Cloudflare PBKDF2 limit of 100,000 and prevents signup. New hashes now use 100,000 iterations. This is a security tradeoff imposed by the native runtime, not a recommended general-purpose password-hardening target. Existing stored counts remain unchanged. Raising password-hardening strength requires a different supported KDF or authentication architecture. The original CPU estimate was not proof of hosted runtime support.
